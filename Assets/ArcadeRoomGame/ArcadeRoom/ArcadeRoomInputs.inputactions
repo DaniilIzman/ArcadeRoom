@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "name": "ArcadeRoomInputs",
+    "maps": [
+        {
+            "name": "New action map",
+            "id": "770089d4-6eee-47a5-88a2-fb2e8344ac90",
+            "actions": [
+                {
+                    "name": "New action",
+                    "type": "Button",
+                    "id": "2a8c5abe-21e7-4d27-8104-bddda25ac437",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "98a3e5ac-db5d-4d2a-9e82-f6634554e554",
+                    "path": "",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "New action",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

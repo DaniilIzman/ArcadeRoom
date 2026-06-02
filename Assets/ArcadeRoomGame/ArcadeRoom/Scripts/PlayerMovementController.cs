@@ -1,222 +1,83 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(CapsuleCollider))]
-public class PlayerMovementController : MonoBehaviour
+[RequireComponent(typeof(CharacterController))]
+public class PlayerMovement : MonoBehaviour
 {
+    [Header("Movement Speeds")]
+    public float walkSpeed = 5f;
+    public float sprintSpeed = 9f;
+    public float crouchSpeed = 2.5f;
 
-    #region Inspector
+    [Header("Jumping & Gravity")]
+    public float jumpHeight = 1.5f;
+    public float gravity = -9.81f;
 
-    [Header("Movement")]
-    [SerializeField] private float walkSpeed = 5f;
-    [SerializeField] private float sprintSpeed = 8f;
-    [SerializeField] private float crouchSpeed = 2.5f;
-    [SerializeField] private float acceleration = 20f;
-    [SerializeField] private float friction = 15f;
+    [Header("Crouching Heights")]
+    public float standingHeight = 2f;
+    public float crouchingHeight = 1f;
 
-    [Header("Crouch")]
-    [SerializeField] private float crouchHeight = 1f;
-    [SerializeField] private float standingHeight = 2f;
-    [SerializeField] private float crouchTransitionSpeed = 8f;
+    private CharacterController controller;
+    private Vector3 velocity;
+    private bool isGrounded;
 
-    [Header("Ground Detection")]
-    [SerializeField] private float groundCheckDistance = 0.2f;
-    [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private float groundDrag = 5f;
-    [SerializeField] private float airDrag = 0.1f;
-
-    [Header("Jump")]
-    [SerializeField] private float jumpForce = 5f;
-    [SerializeField] private bool enableJump = true;
-
-    #endregion
-
-    #region Private References
-
-    private Rigidbody playerRigidbody;
-    private CapsuleCollider playerCollider;
-
-    #endregion
-
-    #region Private State
-
-    private Vector2 inputMovement = Vector2.zero;
-    private bool isSprinting = false;
-    private bool isCrouching = false;
-    private bool isGrounded = false;
-    private bool isMoving = false;
-
-    private Vector3 velocitySmoothed = Vector3.zero;
-    private float currentHeight;
-    private float currentCenterY;
-
-    #endregion
-
-    #region Properties
-
-    public bool IsMoving => isMoving;
-    public bool IsGrounded => isGrounded;
-    public bool IsCrouching => isCrouching;
-    public bool IsSprinting => isSprinting;
-
-    #endregion
-
-    #region Unity Messages
-
-    private void Awake()
+    private void Start()
     {
-        playerRigidbody = GetComponent<Rigidbody>();
-        playerCollider = GetComponent<CapsuleCollider>();
-
-        playerRigidbody.freezeRotation = true;
-        playerRigidbody.constraints = RigidbodyConstraints.FreezeRotationX |
-                                      RigidbodyConstraints.FreezeRotationY |
-                                      RigidbodyConstraints.FreezeRotationZ;
-
-        currentHeight = playerCollider.height;
-        currentCenterY = playerCollider.center.y;
-    }
-
-    private void OnEnable()
-    {
-        InputSystem.onActionChange += OnInputActionChange;
-    }
-
-    private void OnDisable()
-    {
-        InputSystem.onActionChange -= OnInputActionChange;
+        controller = GetComponent<CharacterController>();
     }
 
     private void Update()
     {
-        HandleInput();
-        UpdateCrouch();
-        DetectGround();
-    }
-
-    private void FixedUpdate()
-    {
-        HandleMovement();
-    }
-
-    #endregion
-
-    #region Input Handling
-
-    private void HandleInput()
-    {
-        // wasd movement
-        Vector2 moveInput = InputSystem.actions.FindAction("Move").ReadValue<Vector2>();
-        inputMovement = new Vector2(moveInput.x, moveInput.y);
-
-        // sprint
-        isSprinting = InputSystem.actions.FindAction("Sprint").IsPressed();
-
-        // crouch toggle
-        if (InputSystem.actions.FindAction("Crouch").WasPressedThisFrame())
-        {
-            isCrouching = !isCrouching;
-        }
-
-        // jump
-        if (enableJump && isGrounded && InputSystem.actions.FindAction("Jump").WasPressedThisFrame())
-        {
-            Jump();
-        }
-    }
-
-    private void OnInputActionChange(object action, InputActionChange change)
-    {
-        // callback for input system
-    }
-
-    #endregion
-
-    #region Movement
-
-    private void HandleMovement()
-    {
-        // calculate desired velocity based on input
-        Vector3 moveDirection = transform.right * inputMovement.x + transform.forward * inputMovement.y;
-
-        if (moveDirection.magnitude > 1f)
-        {
-            moveDirection.Normalize();
-        }
-
-        float currentSpeed = GetCurrentSpeed();
-        Vector3 desiredVelocity = moveDirection * currentSpeed;
-
-        // maintain Y velocity gravity
-        desiredVelocity.y = playerRigidbody.linearVelocity.y;
-
-        // smooth velocity change
-        velocitySmoothed = Vector3.Lerp(
-            velocitySmoothed,
-            desiredVelocity,
-            Time.fixedDeltaTime * acceleration
-        );
-
-        // drag
-        float dragCoefficient = isGrounded ? groundDrag : airDrag;
-        velocitySmoothed = Vector3.Lerp(
-            velocitySmoothed,
-            new Vector3(0f, velocitySmoothed.y, 0f),
-            Time.fixedDeltaTime * dragCoefficient
-        );
-
-        playerRigidbody.linearVelocity = velocitySmoothed;
-
-        isMoving = moveDirection.sqrMagnitude > 0.001f;
-    }
-
-    private float GetCurrentSpeed()
-    {
-        if (isCrouching)
-            return crouchSpeed;
+        // ground check
+        isGrounded = controller.isGrounded;
         
-        return isSprinting ? sprintSpeed : walkSpeed;
+        // reset gravity build-up if grounded
+        if (isGrounded && velocity.y < 0)
+        {
+            velocity.y = -2f; 
+        }
+
+        // read keyboard Input (WASD)
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+
+        // determine current state
+        bool isCrouching = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+        bool isSprinting = Input.GetKey(KeyCode.LeftShift) && z > 0 && !isCrouching;
+
+        // calculate speed
+        float currentSpeed = walkSpeed;
+        if (isSprinting)
+        {
+            currentSpeed = sprintSpeed;
+        }
+        if (isCrouching)
+        {
+            currentSpeed = crouchSpeed;
+        }
+
+        // apply movement (X and Z axis)
+        Vector3 move = transform.right * x + transform.forward * z;
+        controller.Move(move * currentSpeed * Time.deltaTime);
+
+        // handle crouching height
+        if (isCrouching)
+        {
+            controller.height = crouchingHeight;
+        }
+        else
+        {
+            controller.height = standingHeight;
+        }
+
+        // handle jumping
+        if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
+        {
+            // physics formula for calculating jump velocity based on desired height
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        }
+
+        // apply Gravity (Y axis)
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
     }
-
-    #endregion
-
-    #region Crouching
-
-    private void UpdateCrouch()
-    {
-        float targetHeight = isCrouching ? crouchHeight : standingHeight;
-        float targetCenterY = isCrouching ? (standingHeight * 0.25f) : (standingHeight * 0.5f);
-
-        currentHeight = Mathf.Lerp(currentHeight, targetHeight, Time.deltaTime * crouchTransitionSpeed);
-        currentCenterY = Mathf.Lerp(currentCenterY, targetCenterY, Time.deltaTime * crouchTransitionSpeed);
-
-        playerCollider.height = currentHeight;
-        playerCollider.center = new Vector3(0f, currentCenterY, 0f);
-    }
-
-    #endregion
-
-    #region Ground Detection
-
-    private void DetectGround()
-    {
-        Vector3 rayOrigin = transform.position + Vector3.up * (playerCollider.bounds.min.y + 0.1f);
-        isGrounded = Physics.Raycast(rayOrigin, Vector3.down, groundCheckDistance, groundLayer);
-
-        Debug.DrawRay(rayOrigin, Vector3.down * groundCheckDistance, isGrounded ? Color.green : Color.red);
-    }
-
-    #endregion
-
-    #region Jump
-
-    private void Jump()
-    {
-        Vector3 jumpVelocity = playerRigidbody.linearVelocity;
-        jumpVelocity.y = jumpForce;
-        playerRigidbody.linearVelocity = jumpVelocity;
-    }
-
-    #endregion
 }
