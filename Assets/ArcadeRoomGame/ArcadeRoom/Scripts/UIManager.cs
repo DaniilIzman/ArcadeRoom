@@ -5,43 +5,49 @@ public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
-    [Header("UI Text Elements")]
+    [Header("UI References")]
     public TextMeshProUGUI creditText;
-    public TextMeshProUGUI hoverText;
+    public TextMeshProUGUI interactionPromptText;
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
-        else
+        Instance = this;
+    }
+
+    private void Start()
+    {
+        // ensure the prompt is hidden when the game starts
+        HidePrompt();
+    }
+
+    public void UpdateCreditText(int newAmount)
+    {
+        if (creditText != null)
         {
-            Instance = this;
+            creditText.text = "Credits: " + newAmount;
         }
     }
 
-    private void Update()
+    public void ShowPrompt(string message)
     {
-        if (GameManager.Instance != null && creditText != null)
+        if (interactionPromptText != null)
         {
-            creditText.text = "Credits: " + GameManager.Instance.Credits;
+            interactionPromptText.text = message;
+            interactionPromptText.gameObject.SetActive(true);
         }
     }
 
-    public void ShowHoverText(string message)
+    public void HidePrompt()
     {
-        if (hoverText != null)
+        if (interactionPromptText != null)
         {
-            hoverText.text = message;
-        }
-    }
-
-    public void ClearHoverText()
-    {
-        if (hoverText != null)
-        {
-            hoverText.text = "";
+            interactionPromptText.gameObject.SetActive(false);
+            interactionPromptText.text = "";
         }
     }
 }

@@ -1,24 +1,76 @@
 using UnityEngine;
+using UnityEngine.SceneManagement; // Required for loading scenes
 
-public class ArcadeMachine : Interactable
+[RequireComponent(typeof(Collider))]
+public class ArcadeMachine : MonoBehaviour
 {
-    [Header("Arcade Cabinets Settings")]
-    public string machineName = "Pac-Man";
-    public int rewardCredits = 15;
+    [Header("Game Settings")]
+    public string gameName = "Space Invaders";
+    public int playCost = 5;
+    
+    [Header("Scene Routing")]
+    public string sceneToLoad; 
 
-    private void Start()
+    private bool isPlayerInside = false;
+
+    private void Update()
     {
-        // this dynamically formats the string to include the game name
-        hoverText = "Press E to play " + machineName;
+        // if the player is in the zone and presses E
+        if (isPlayerInside && Input.GetKeyDown(KeyCode.E))
+        {
+            AttemptPlayGame();
+        }
     }
 
-    public override void Interact()
+    private void AttemptPlayGame()
     {
-        Debug.Log("Now playing: " + machineName + "!");
-        
-        if (GameManager.Instance != null)
+        // check if the GameManager exists and if we have enough money
+        if (GameManager.Instance != null && GameManager.Instance.TrySpendCredits(playCost))
         {
-            GameManager.Instance.AddCredits(rewardCredits);
+            Debug.Log("Starting " + gameName + "! Loading scene: " + sceneToLoad);
+            
+            // load the mini-game scene
+            if (!string.IsNullOrEmpty(sceneToLoad))
+            {
+                SceneManager.LoadScene(sceneToLoad);
+            }
+            else
+            {
+                Debug.LogWarning("Scene name is empty! Please assign a scene in the inspector.");
+            }
+        }
+        else
+        {
+
+            Debug.Log("Cannot play " + gameName + ". Insufficient credits.");
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            isPlayerInside = true;
+
+            if (UIManager.Instance != null)
+            {
+                // show the dynamic text when walking up to the machine
+                UIManager.Instance.ShowPrompt("Press E to play " + gameName + " (" + playCost + " Credits)");
+            }
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            isPlayerInside = false;
+
+            if (UIManager.Instance != null)
+            {
+                // hide the text when walking away
+                UIManager.Instance.HidePrompt();
+            }
         }
     }
 }
