@@ -1,10 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI; // CRITICAL: Required for interacting with UI Images
+using UnityEngine.UI; 
 using System.Collections;
 
-[RequireComponent(typeof(Collider))]
-[RequireComponent(typeof(AudioSource))]
 public class ArcadeMachine : MonoBehaviour
 {
     [Header("Game Settings")]
@@ -19,7 +17,6 @@ public class ArcadeMachine : MonoBehaviour
     public AudioClip insertCoinSound;
 
     [Header("UI Transitions")]
-    [Tooltip("Assign a full-screen black UI Image to fade out during load.")]
     public Image fadeOverlay;
 
     private bool isPlayerInside = false;
@@ -90,7 +87,6 @@ public class ArcadeMachine : MonoBehaviour
         PlayerCamera cameraLook = null;
         if (playerInZone != null) cameraLook = playerInZone.GetComponentInChildren<PlayerCamera>();
 
-        // save position/rotation
         if (playerInZone != null)
         {
             PlayerMovement.savedPos = playerInZone.transform.position;
@@ -110,29 +106,32 @@ public class ArcadeMachine : MonoBehaviour
             UIManager.Instance.ShowPrompt("Loading " + gameName + "...");
         }
 
-        // fade logic
+        // fade out the background lobby audio matching the load delay
+        if (AmbientAudio.Instance != null)
+        {
+            AmbientAudio.Instance.FadeOut(loadDelay);
+        }
+
+        // visual Fade Logic
         if (fadeOverlay != null)
         {
             fadeOverlay.gameObject.SetActive(true);
             Color fadeColor = fadeOverlay.color;
             float elapsedTime = 0f;
 
-            // smoothly increase alpha from 0 to 1 over the loadDelay duration
             while (elapsedTime < loadDelay)
             {
                 elapsedTime += Time.deltaTime;
                 fadeColor.a = Mathf.Clamp01(elapsedTime / loadDelay);
                 fadeOverlay.color = fadeColor;
-                yield return null; // wait for the exact next frame
+                yield return null; 
             }
         }
         else
         {
-            // fallback if you forget to assign the image
             yield return new WaitForSeconds(loadDelay);
         }
 
-        // Load the scene
         if (!string.IsNullOrEmpty(sceneToLoad))
         {
             SceneManager.LoadScene(sceneToLoad);
