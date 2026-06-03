@@ -9,8 +9,8 @@ EditorBuildSettings:
     path: Assets/ArcadeRoomGame/ArcadeRoom/Scenes/ArcadeRoom.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
-    path: Assets/ArcadeRoomGame/ArcadeGames/SpaceInvaders/Scenes/Test.unity
-    guid: 546c71f9cc03fff419d4658a8702214a
+    path: Assets/ArcadeRoomGame/ArcadeRoom/Scripts/Debugging/Test.unity
+    guid: 4ce79928cdfca3e45b8a68f593484506
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
