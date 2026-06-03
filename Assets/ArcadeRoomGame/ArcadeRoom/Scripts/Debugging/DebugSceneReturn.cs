@@ -18,6 +18,16 @@ public class DebugSceneReturn : MonoBehaviour
         {
             if (!string.IsNullOrEmpty(lobbySceneName))
             {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.AddCredits(10);
+                    Debug.Log("[DEBUG] Rewarded 10 credits.");
+                }
+                else
+                {
+                    Debug.LogWarning("[DEBUG] GameManager not found! Could not add credits.");
+                }
+
                 Debug.Log($"[DEBUG] Returning to '{lobbySceneName}' to verify player position/rotation persistence.");
                 SceneManager.LoadScene(lobbySceneName);
             }
@@ -28,11 +38,14 @@ public class DebugSceneReturn : MonoBehaviour
         }
     }
 
-    // Optional: Attach this method to a UI Button component's OnClick() event if preferred
     public void ReturnToLobbyViaButton()
     {
         if (!string.IsNullOrEmpty(lobbySceneName))
         {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.AddCredits(10);
+            }
             SceneManager.LoadScene(lobbySceneName);
         }
     }
