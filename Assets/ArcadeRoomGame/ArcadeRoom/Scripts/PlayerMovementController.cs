@@ -19,46 +19,77 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 velocity;
     private bool isGrounded;
 
+    [HideInInspector] public bool isFrozen = false;
+    public bool IsGrounded => isGrounded; 
+
+    // static memory fields
+    public static bool restorePosition = false;
+    public static Vector3 savedPos;
+    public static Quaternion savedRot;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        restorePosition = false;
+        savedPos = Vector3.zero;
+        savedRot = Quaternion.identity;
+    }
+
     private void Start()
     {
         controller = GetComponent<CharacterController>();
+
+        if (restorePosition)
+        {
+            // turn off the controller so it releases its grip on the transform
+            controller.enabled = false;
+            
+            // teleport the player
+            transform.position = savedPos;
+            transform.rotation = savedRot;
+            
+            // force Unity's physics engine to instantly register the new coordinates
+            // without this, the CharacterController will snap the player back to the default spawn point
+            Physics.SyncTransforms(); 
+            
+            // 4. Turn the controller back on
+            controller.enabled = true; 
+
+            restorePosition = false; 
+        }
     }
 
     private void Update()
     {
-        // ground check
         isGrounded = controller.isGrounded;
         
-        // reset gravity build-up if grounded
+        if (isFrozen)
+        {
+            // keep the controller engaged with a zero-vector 
+            // skipping the Move command entirely causes unity to push/snap if the player is touching a wall
+            controller.Move(Vector3.zero);
+            velocity = Vector3.zero;
+            return;
+        }
+
         if (isGrounded && velocity.y < 0)
         {
             velocity.y = -2f; 
         }
 
-        // read keyboard Input (WASD)
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        // determine current state
         bool isCrouching = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
         bool isSprinting = Input.GetKey(KeyCode.LeftShift) && z > 0 && !isCrouching;
 
-        // calculate speed
         float currentSpeed = walkSpeed;
-        if (isSprinting)
-        {
-            currentSpeed = sprintSpeed;
-        }
-        if (isCrouching)
-        {
-            currentSpeed = crouchSpeed;
-        }
+        if (isSprinting) currentSpeed = sprintSpeed;
+        if (isCrouching) currentSpeed = crouchSpeed;
 
-        // apply movement (X and Z axis)
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        // handle crouching height
         if (isCrouching)
         {
             controller.height = crouchingHeight;
@@ -68,14 +99,11 @@ public class PlayerMovement : MonoBehaviour
             controller.height = standingHeight;
         }
 
-        // handle jumping
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
         {
-            // physics formula for calculating jump velocity based on desired height
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        // apply Gravity (Y axis)
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
