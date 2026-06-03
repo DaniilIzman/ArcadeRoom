@@ -19,10 +19,12 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 velocity;
     private bool isGrounded;
 
-    [HideInInspector] public bool isFrozen = false;
+    // state separation
+    [HideInInspector] public bool isPausedByMenu = false;
+    [HideInInspector] public bool isFrozenByArcade = false;
+    
     public bool IsGrounded => isGrounded; 
 
-    // static memory fields
     public static bool restorePosition = false;
     public static Vector3 savedPos;
     public static Quaternion savedRot;
@@ -41,20 +43,11 @@ public class PlayerMovement : MonoBehaviour
 
         if (restorePosition)
         {
-            // turn off the controller so it releases its grip on the transform
             controller.enabled = false;
-            
-            // teleport the player
             transform.position = savedPos;
             transform.rotation = savedRot;
-            
-            // force Unity's physics engine to instantly register the new coordinates
-            // without this, the CharacterController will snap the player back to the default spawn point
             Physics.SyncTransforms(); 
-            
-            // 4. Turn the controller back on
             controller.enabled = true; 
-
             restorePosition = false; 
         }
     }
@@ -63,10 +56,9 @@ public class PlayerMovement : MonoBehaviour
     {
         isGrounded = controller.isGrounded;
         
-        if (isFrozen)
+        // dual state check
+        if (isPausedByMenu || isFrozenByArcade)
         {
-            // keep the controller engaged with a zero-vector 
-            // skipping the Move command entirely causes unity to push/snap if the player is touching a wall
             controller.Move(Vector3.zero);
             velocity = Vector3.zero;
             return;
@@ -90,14 +82,7 @@ public class PlayerMovement : MonoBehaviour
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        if (isCrouching)
-        {
-            controller.height = crouchingHeight;
-        }
-        else
-        {
-            controller.height = standingHeight;
-        }
+        controller.height = isCrouching ? crouchingHeight : standingHeight;
 
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
         {

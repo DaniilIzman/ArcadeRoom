@@ -3,17 +3,19 @@ using UnityEngine;
 public class PlayerCamera : MonoBehaviour
 {
     [Header("Look Settings")]
-    public float mouseSensitivity = 200f;
+    [Tooltip("Adjust this in your UI Canvas Settings Slider. A good range is 0.5 to 10.")]
+    public float mouseSensitivity = 2.0f;
     public Transform playerBody; 
 
     private float xRotation = 0f;
-    [HideInInspector] public bool isFrozen = false;
 
-    // static memory fields
+    // state separation
+    [HideInInspector] public bool isPausedByMenu = false;
+    [HideInInspector] public bool isFrozenByArcade = false;
+
     public static bool restorePitch = false;
     public static float savedPitch = 0f;
 
-    // clears static memory automatically when a full game restart happens
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
     {
@@ -35,10 +37,11 @@ public class PlayerCamera : MonoBehaviour
 
     private void Update()
     {
-        if (isFrozen) return; 
+        // dual state check
+        if (isPausedByMenu || isFrozenByArcade) return; 
 
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+        float mouseX = Input.GetAxisRaw("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxisRaw("Mouse Y") * mouseSensitivity;
 
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);

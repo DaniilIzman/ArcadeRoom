@@ -4,12 +4,10 @@ using System.Collections;
 public class AmbientAudio : MonoBehaviour
 {
     public static AmbientAudio Instance { get; private set; }
-
     private AudioSource audioSource;
 
     private void Awake()
     {
-        // set up a scene-local singleton instance
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -18,12 +16,20 @@ public class AmbientAudio : MonoBehaviour
         Instance = this;
 
         audioSource = GetComponent<AudioSource>();
-        
-        // enforce loop settings for continuous background noise
         audioSource.loop = true;
     }
 
-    /// smoothly linear-interpolates the volume down to 0 over a given timeframe
+    // Pause/Resume controls
+    public void PauseMusic()
+    {
+        if (audioSource != null && audioSource.isPlaying) audioSource.Pause();
+    }
+
+    public void ResumeMusic()
+    {
+        if (audioSource != null && !audioSource.isPlaying) audioSource.UnPause();
+    }
+
     public void FadeOut(float duration)
     {
         StartCoroutine(FadeOutSequence(duration));
