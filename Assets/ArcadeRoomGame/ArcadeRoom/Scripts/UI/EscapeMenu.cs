@@ -77,14 +77,9 @@ public class EscapeMenu : MonoBehaviour
     public void TogglePauseState()
     {
         isPaused = !isPaused;
+        
+        // Time.timeScale = 0 freezes the game (movement, physics), 
         Time.timeScale = isPaused ? 0f : 1f;
-
-        // ambient Music fix
-        if (AmbientAudio.Instance != null)
-        {
-            if (isPaused) AmbientAudio.Instance.PauseMusic();
-            else AmbientAudio.Instance.ResumeMusic();
-        }
 
         pausePanel.SetActive(isPaused);
         UpdatePlayerConstraints(isPaused);
