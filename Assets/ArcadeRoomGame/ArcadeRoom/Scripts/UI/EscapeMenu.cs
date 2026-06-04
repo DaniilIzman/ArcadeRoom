@@ -18,6 +18,7 @@ public class EscapeMenu : MonoBehaviour
     public TMP_Dropdown resolutionDropdown;
     public Slider musicVolumeSlider;
     public Slider sfxVolumeSlider;
+    public Slider uiVolumeSlider;
     public Slider sensitivitySlider;
     
     [Header("Dynamic Button Settings")]
@@ -27,6 +28,7 @@ public class EscapeMenu : MonoBehaviour
     public AudioMixer mainMixer;
     public string musicParamName = "MusicVol";
     public string sfxParamName = "SFXVol";
+    public string uiParamName = "UIVol";
 
     [Header("Scene Routing")]
     public string mainMenuSceneName = "MainMenu";
@@ -34,7 +36,7 @@ public class EscapeMenu : MonoBehaviour
 
     private bool isPaused = false;
     private bool hasChanges = false; 
-    public bool canPause = true; // ssed to lock menu during load transitions
+    public bool canPause = true; 
     private Resolution[] availableResolutions;
     
     private PlayerCamera cachedCamera;
@@ -58,11 +60,14 @@ public class EscapeMenu : MonoBehaviour
         LoadAndApplySettings();
         ResetBackButtonText();
 
-        // automatic slider wiring (Fixes non-functional sliders)
+        // automatic slider wiring
         if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener(SetMusicVolume);
         if (sfxVolumeSlider) sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
+        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener(SetUIVolume); // NEW
         if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(SetSensitivity);
         if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(SetResolution);
+
+        WireEscapeMenuAudio();
     }
 
     private void Update()
@@ -77,8 +82,6 @@ public class EscapeMenu : MonoBehaviour
     public void TogglePauseState()
     {
         isPaused = !isPaused;
-        
-        // Time.timeScale = 0 freezes the game (movement, physics), 
         Time.timeScale = isPaused ? 0f : 1f;
 
         pausePanel.SetActive(isPaused);
@@ -86,7 +89,6 @@ public class EscapeMenu : MonoBehaviour
         ManageCursorState(isPaused);
     }
 
-    // called by arcadeMachine to prevent overlaps
     public void ForceCloseAndLock()
     {
         canPause = false;
@@ -109,6 +111,7 @@ public class EscapeMenu : MonoBehaviour
         {
             PlayerPrefs.SetFloat("Setting_MusicVol", musicVolumeSlider.value);
             PlayerPrefs.SetFloat("Setting_SFXVol", sfxVolumeSlider.value);
+            PlayerPrefs.SetFloat("Setting_UIVol", uiVolumeSlider.value); // NEW
             PlayerPrefs.SetFloat("Setting_MouseSensitivity", sensitivitySlider.value);
             PlayerPrefs.SetInt("Setting_Resolution", resolutionDropdown.value);
             
@@ -193,6 +196,13 @@ public class EscapeMenu : MonoBehaviour
         MarkSettingsAsDirty();
     }
 
+    // NEW
+    public void SetUIVolume(float value)
+    {
+        ApplyVolumeToMixer(uiParamName, value);
+        MarkSettingsAsDirty();
+    }
+
     private void ApplyVolumeToMixer(string parameterName, float sliderValue)
     {
         if (mainMixer == null) return;
@@ -210,14 +220,17 @@ public class EscapeMenu : MonoBehaviour
     {
         float musicVol = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
         float sfxVol = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
+        float uiVol = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f); // NEW
         float sensitivity = PlayerPrefs.GetFloat("Setting_MouseSensitivity", 2.0f);
 
         if (musicVolumeSlider != null) musicVolumeSlider.value = musicVol;
         if (sfxVolumeSlider != null) sfxVolumeSlider.value = sfxVol;
+        if (uiVolumeSlider != null) uiVolumeSlider.value = uiVol; // NEW
         if (sensitivitySlider != null) sensitivitySlider.value = sensitivity;
 
         ApplyVolumeToMixer(musicParamName, musicVol);
         ApplyVolumeToMixer(sfxParamName, sfxVol);
+        ApplyVolumeToMixer(uiParamName, uiVol); // NEW
         ApplySensitivityToCamera(sensitivity);
     }
 
@@ -228,7 +241,6 @@ public class EscapeMenu : MonoBehaviour
 
     private void UpdatePlayerConstraints(bool shouldFreeze)
     {
-        // menu only targets the pause flag
         if (cachedCamera != null) cachedCamera.isPausedByMenu = shouldFreeze;
         if (cachedMovement != null) cachedMovement.isPausedByMenu = shouldFreeze;
     }
@@ -237,6 +249,32 @@ public class EscapeMenu : MonoBehaviour
     {
         Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
         Cursor.visible = visible;
+    }
+
+    private void WireEscapeMenuAudio()
+    {
+        // hook up slider movement sounds
+        if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (sfxVolumeSlider) sfxVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); }); 
+        
+        // sensitivity slider sound
+        if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        
+        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+
+        // wire click sounds directly to canvas buttons
+        Button[] menuButtons = settingsPanel.GetComponentsInChildren<Button>(true);
+        foreach (Button btn in menuButtons)
+        {
+            btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+        }
+
+        Button[] pauseButtons = pausePanel.GetComponentsInChildren<Button>(true);
+        foreach (Button btn in pauseButtons)
+        {
+            btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+        }
     }
 
     #endregion
