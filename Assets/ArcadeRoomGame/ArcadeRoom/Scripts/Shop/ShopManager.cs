@@ -30,9 +30,10 @@ public class ShopManager : MonoBehaviour
     private bool hasBoughtCube = false; 
     private PlayerCamera cachedCamera;
     private PlayerMovement cachedMovement;
-    
-    // tracks the NPC we are currently interacting with
     private NPCShopInteract currentNPC; 
+
+    //a constant string key for our save file
+    private const string SAVE_KEY_CUBE_BOUGHT = "Shop_HasBoughtCube";
 
     private void Awake()
     {
@@ -47,6 +48,16 @@ public class ShopManager : MonoBehaviour
 
         if (shopContainer != null) shopContainer.SetActive(false);
         WireButtons();
+
+        // load the saved state from the hard drive
+        hasBoughtCube = PlayerPrefs.GetInt(SAVE_KEY_CUBE_BOUGHT, 0) == 1;
+        
+        // if they already bought it in a previous session, visually update the button immediately
+        if (hasBoughtCube && buyCubeButton != null)
+        {
+            TextMeshProUGUI btnText = buyCubeButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnText != null) btnText.text = "Sold Out";
+        }
     }
 
     private void Update()
@@ -70,7 +81,6 @@ public class ShopManager : MonoBehaviour
         }
     }
 
-    // accepts the NPC reference when opening
     public void OpenShop(NPCShopInteract interactingNPC)
     {
         isShopOpen = true;
@@ -101,7 +111,6 @@ public class ShopManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // trigger context-sensitive goodbye, then clear the reference
         if (currentNPC != null) 
         {
             currentNPC.PlayLeaveShopVoiceLine();
@@ -132,6 +141,11 @@ public class ShopManager : MonoBehaviour
                 if (cubePrefab != null && cubeSpawnPoint != null) Instantiate(cubePrefab, cubeSpawnPoint.position, cubeSpawnPoint.rotation);
                 
                 hasBoughtCube = true; 
+                
+                // save the purchase to the hard drive immediately
+                PlayerPrefs.SetInt(SAVE_KEY_CUBE_BOUGHT, 1);
+                PlayerPrefs.Save();
+
                 if (currentNPC != null) currentNPC.hasBoughtSomethingThisVisit = true;
 
                 if (buyCubeButton != null)
@@ -139,7 +153,6 @@ public class ShopManager : MonoBehaviour
                     TextMeshProUGUI btnText = buyCubeButton.GetComponentInChildren<TextMeshProUGUI>();
                     if (btnText != null) btnText.text = "Sold Out";
                 }
-                
             }
             else
             {

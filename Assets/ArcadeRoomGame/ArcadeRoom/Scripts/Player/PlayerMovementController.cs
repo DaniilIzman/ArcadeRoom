@@ -18,6 +18,8 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Audio Clips")]
     public AudioClip jumpSound;
+    public AudioClip crouchDownSound;
+    public AudioClip standUpSound;
     public AudioClip[] walkFootsteps;
     public AudioClip[] sprintFootsteps;
     public AudioClip[] crouchFootsteps;
@@ -38,6 +40,7 @@ public class PlayerMovement : MonoBehaviour
     [HideInInspector] public bool isPausedByMenu = false;
     [HideInInspector] public bool isFrozenByArcade = false;
     [HideInInspector] public bool isShopping = false;
+    private bool wasCrouching = false;
     public bool IsGrounded => isGrounded; 
 
     public static bool restorePosition = false;
@@ -90,6 +93,17 @@ public class PlayerMovement : MonoBehaviour
 
         bool isCrouching = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
         bool isSprinting = Input.GetKey(KeyCode.LeftShift) && z > 0 && !isCrouching;
+
+        // detect exactly when the crouch state changes to play the sound
+        if (isCrouching && !wasCrouching && isGrounded)
+        {
+            if (crouchDownSound != null) audioSource.PlayOneShot(crouchDownSound, footstepVolume);
+        }
+        else if (!isCrouching && wasCrouching && isGrounded)
+        {
+            if (standUpSound != null) audioSource.PlayOneShot(standUpSound, footstepVolume);
+        }
+        wasCrouching = isCrouching; // update the tracking variable for the next frame
 
         float currentSpeed = walkSpeed;
         if (isSprinting) currentSpeed = sprintSpeed;

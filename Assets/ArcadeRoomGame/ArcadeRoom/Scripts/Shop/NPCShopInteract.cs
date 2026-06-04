@@ -18,9 +18,10 @@ public class NPCShopInteract : MonoBehaviour
     private AudioSource npcAudioSource;
     private bool isPlayerInside = false;
     private PlayerMovement playerInZone = null;
-    
-    // tracks if the player made a purchase during the current interaction
+
     [HideInInspector] public bool hasBoughtSomethingThisVisit = false;
+    private float lastGreetTime;
+    private float greetCooldown = 3.0f;
 
     private void Start()
     {
@@ -51,14 +52,22 @@ public class NPCShopInteract : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
+        // only fire if they are not already inside, preventing double-collider/low-fps physics glitches
+        if (other.CompareTag("Player") && !isPlayerInside)
         {
             isPlayerInside = true;
             playerInZone = other.GetComponent<PlayerMovement>();
+            
             if (UIManager.Instance != null && (!ShopManager.Instance || !ShopManager.Instance.isShopOpen))
             {
                 UIManager.Instance.ShowPrompt("Press E to talk to " + npcName);
-                PlayRandomVoiceLine(greetingClips);
+                
+                // check the cooldown timer before playing the sound
+                if (Time.unscaledTime - lastGreetTime > greetCooldown)
+                {
+                    PlayRandomVoiceLine(greetingClips);
+                    lastGreetTime = Time.unscaledTime;
+                }
             }
         }
     }
