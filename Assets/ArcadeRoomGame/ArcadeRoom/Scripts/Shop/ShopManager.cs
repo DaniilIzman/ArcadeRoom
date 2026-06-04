@@ -1,6 +1,26 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
+using System.IO;
+
+[System.Serializable]
+public class ShopSaveData
+{
+    public List<string> boughtItems = new List<string>(); 
+}
+
+[System.Serializable]
+public class ShopItem
+{
+    public string inspectorName; 
+    public string uniqueID; 
+    public int price;
+    public GameObject prefab;
+    public Transform spawnPoint;
+    public Button buyButton;
+    [HideInInspector] public bool isSoldOut;
+}
 
 public class ShopManager : MonoBehaviour
 {
@@ -19,26 +39,24 @@ public class ShopManager : MonoBehaviour
     public Button backToDialogueButton1;   
     public Button backToDialogueButton2;   
 
-    [Header("Cube Item Settings")]
-    public int cubePrice = 50;
-    public GameObject cubePrefab;       
-    public Transform cubeSpawnPoint;    
-    public Button buyCubeButton;
+    [Header("Shop Inventory")]
+    public ShopItem[] shopItems;
 
     [HideInInspector] public bool isShopOpen = false;
     
-    private bool hasBoughtCube = false; 
     private PlayerCamera cachedCamera;
     private PlayerMovement cachedMovement;
     private NPCShopInteract currentNPC; 
 
-    //a constant string key for our save file
-    private const string SAVE_KEY_CUBE_BOUGHT = "Shop_HasBoughtCube";
+    private string saveFilePath;
+    private ShopSaveData saveData = new ShopSaveData();
 
     private void Awake()
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
         else Instance = this;
+
+        saveFilePath = Application.persistentDataPath + "/shopProgress.json";
     }
 
     private void Start()
@@ -47,17 +65,10 @@ public class ShopManager : MonoBehaviour
         cachedMovement = Object.FindFirstObjectByType<PlayerMovement>();
 
         if (shopContainer != null) shopContainer.SetActive(false);
-        WireButtons();
-
-        // load the saved state from the hard drive
-        hasBoughtCube = PlayerPrefs.GetInt(SAVE_KEY_CUBE_BOUGHT, 0) == 1;
         
-        // if they already bought it in a previous session, visually update the button immediately
-        if (hasBoughtCube && buyCubeButton != null)
-        {
-            TextMeshProUGUI btnText = buyCubeButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (btnText != null) btnText.text = "Sold Out";
-        }
+        LoadGameData(); 
+        WireNavigationButtons();
+        InitializeInventory();
     }
 
     private void Update()
@@ -65,19 +76,74 @@ public class ShopManager : MonoBehaviour
         if (isShopOpen && Input.GetKeyDown(KeyCode.Escape)) CloseShop();
     }
 
-    private void WireButtons()
+    private void LoadGameData()
+    {
+        if (File.Exists(saveFilePath))
+        {
+            string jsonContent = File.ReadAllText(saveFilePath);
+            saveData = JsonUtility.FromJson<ShopSaveData>(jsonContent);
+            Debug.Log("Game Loaded successfully from: " + saveFilePath);
+        }
+        else
+        {
+            saveData = new ShopSaveData();
+            Debug.Log("No save file found. Creating new save data.");
+        }
+    }
+
+    private void SaveGameData()
+    {
+        string jsonContent = JsonUtility.ToJson(saveData, true);
+        File.WriteAllText(saveFilePath, jsonContent);
+    }
+
+    private void WireNavigationButtons()
     {
         if (navPowerupsButton) navPowerupsButton.onClick.AddListener(() => SwitchTab(powerupsPanel));
         if (navTrophiesButton) navTrophiesButton.onClick.AddListener(() => SwitchTab(trophiesPanel));
         if (navLeaveButton) navLeaveButton.onClick.AddListener(CloseShop);
         if (backToDialogueButton1) backToDialogueButton1.onClick.AddListener(() => SwitchTab(npcDialoguePanel));
         if (backToDialogueButton2) backToDialogueButton2.onClick.AddListener(() => SwitchTab(npcDialoguePanel));
-        if (buyCubeButton) buyCubeButton.onClick.AddListener(BuyCube);
 
-        Button[] allButtons = { navPowerupsButton, navTrophiesButton, navLeaveButton, backToDialogueButton1, backToDialogueButton2, buyCubeButton };
-        foreach (Button btn in allButtons)
+        Button[] navButtons = { navPowerupsButton, navTrophiesButton, navLeaveButton, backToDialogueButton1, backToDialogueButton2 };
+        foreach (Button btn in navButtons)
         {
             if (btn != null) btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+        }
+    }
+
+    private void InitializeInventory()
+    {
+        foreach (ShopItem item in shopItems)
+        {
+            item.isSoldOut = saveData.boughtItems.Contains(item.uniqueID);
+            
+            if (item.isSoldOut) 
+            {
+                UpdateItemButtonUI(item);
+                
+                // spawn the physical item into the world if it was loaded from the save file
+                if (item.prefab != null && item.spawnPoint != null) 
+                {
+                    Instantiate(item.prefab, item.spawnPoint.position, item.spawnPoint.rotation);
+                }
+            }
+
+            if (item.buyButton != null)
+            {
+                ShopItem capturedItem = item; 
+                capturedItem.buyButton.onClick.AddListener(() => BuyItem(capturedItem));
+                capturedItem.buyButton.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+            }
+        }
+    }
+
+    private void UpdateItemButtonUI(ShopItem item)
+    {
+        if (item.buyButton != null)
+        {
+            TextMeshProUGUI btnText = item.buyButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnText != null) btnText.text = "Sold Out";
         }
     }
 
@@ -126,38 +192,36 @@ public class ShopManager : MonoBehaviour
         if (activePanel) activePanel.SetActive(true);
     }
 
-    public void BuyCube()
+    public void BuyItem(ShopItem item)
     {
-        if (hasBoughtCube)
+        if (item.isSoldOut)
         {
             if (currentNPC != null) currentNPC.PlayRandomVoiceLine(currentNPC.outOfStockClips);
             return;
         }
 
-        if (GameManager.Instance != null)
+        if (GameManager.Instance != null && GameManager.Instance.TrySpendCredits(item.price))
         {
-            if (GameManager.Instance.TrySpendCredits(cubePrice))
-            {
-                if (cubePrefab != null && cubeSpawnPoint != null) Instantiate(cubePrefab, cubeSpawnPoint.position, cubeSpawnPoint.rotation);
-                
-                hasBoughtCube = true; 
-                
-                // save the purchase to the hard drive immediately
-                PlayerPrefs.SetInt(SAVE_KEY_CUBE_BOUGHT, 1);
-                PlayerPrefs.Save();
+            if (item.prefab != null && item.spawnPoint != null) Instantiate(item.prefab, item.spawnPoint.position, item.spawnPoint.rotation);
+            
+            item.isSoldOut = true; 
+            
+            saveData.boughtItems.Add(item.uniqueID);
+            SaveGameData();
 
-                if (currentNPC != null) currentNPC.hasBoughtSomethingThisVisit = true;
-
-                if (buyCubeButton != null)
-                {
-                    TextMeshProUGUI btnText = buyCubeButton.GetComponentInChildren<TextMeshProUGUI>();
-                    if (btnText != null) btnText.text = "Sold Out";
-                }
-            }
-            else
-            {
-                if (currentNPC != null) currentNPC.PlayRandomVoiceLine(currentNPC.notEnoughCreditsClips);
-            }
+            if (currentNPC != null) currentNPC.hasBoughtSomethingThisVisit = true;
+            UpdateItemButtonUI(item);
         }
+        else if (currentNPC != null)
+        {
+            currentNPC.PlayRandomVoiceLine(currentNPC.notEnoughCreditsClips);
+        }
+    }
+
+    public void ResetShopProgress()
+    {
+        saveData.boughtItems.Clear();
+        SaveGameData(); 
+        Debug.Log("DEBUG: Shop JSON save file has been wiped.");
     }
 }

@@ -1,78 +1,103 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
+    // Singleton pattern to ensure only one GameManager exists and can be accessed anywhere
     public static GameManager Instance { get; private set; }
 
     [Header("Economy Settings")]
-    [SerializeField] private int startingCredits = 10;
-    private int currentCredits;
+    [Tooltip("The amount of credits the player starts with on a brand new save.")]
+    public int startingCredits = 500;
+    
+    [Tooltip("The player's current money. (Auto-updates)")]
+    public int currentCredits;
+
+    [Header("UI References")]
+    [Tooltip("Drag your Credits Text UI element here.")]
+    public TextMeshProUGUI creditsText; 
 
     private void Awake()
     {
-        // 1. Check if an instance already exists when reloading the lobby scene
+        // Standard Singleton setup
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject); // Destroy the duplicate copy
-            return;
+            Destroy(gameObject);
         }
-
-        Instance = this;
-        
-        // 2. CRITICAL: Tells Unity not to destroy this object when changing scenes
-        DontDestroyOnLoad(gameObject); 
-
-        // Initialize credits only once when the game first boots up
-        currentCredits = startingCredits;
-    }
-
-    private void OnEnable()
-    {
-        // Listen for scene loads so we can update the UI automatically on return
-        SceneManager.sceneLoaded += OnSceneLoaded;
-    }
-
-    private void OnDisable()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
+        else
+        {
+            Instance = this;
+        }
     }
 
     private void Start()
     {
-        UpdateCreditUI();
+        // load saved credits; if it's the player's very first time 
+        // (no save found), default to 'startingCredits'.
+        currentCredits = PlayerPrefs.GetInt("PlayerCredits", startingCredits);
+        
+        // refresh the UI immediately on start
+        UpdateCreditsUI();
     }
 
-    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        // 3. FIX: Whenever you return to the lobby, instantly push the persistent credit count
-        // to the brand new UIManager instance in that scene.
-        UpdateCreditUI();
-    }
-
+    /// Called by ShopManager.cs when the player clicks a "Buy" button.
+    /// <param name="amount">The price of the item.</param>
+    /// <returns>True if the transaction was successful, false if not enough credits.</returns>
     public bool TrySpendCredits(int amount)
     {
         if (currentCredits >= amount)
         {
+            // deduct the cost
             currentCredits -= amount;
-            UpdateCreditUI();
-            return true;
+            
+            // immediately save the new credit balance to the hard drive
+            PlayerPrefs.SetInt("PlayerCredits", currentCredits);
+            PlayerPrefs.Save();
+            
+            // update the visual text on screen
+            UpdateCreditsUI();
+            
+            return true; // Transaction approved
         }
-        return false;
+        
+        return false; // transaction denied
     }
 
-    // Call this from your mini-game scripts when the player wins/earns rewards!
+    /// called by PlayerMovement.cs during the Debug 'R' reset sequence.
+    public void ResetCredits()
+    {
+        // Revert back to default
+        currentCredits = startingCredits;
+        
+        // Overwrite the save file with the default amount
+        PlayerPrefs.SetInt("PlayerCredits", currentCredits);
+        PlayerPrefs.Save();
+        
+        UpdateCreditsUI();
+        Debug.Log("DEBUG: GameManager credits have been reset to " + startingCredits);
+    }
+
+    /// updates the TextMeshPro UI element if one is assigned.
+    private void UpdateCreditsUI()
+    {
+        if (creditsText != null)
+        {
+            creditsText.text = "Credits: " + currentCredits.ToString();
+        }
+    }
+
     public void AddCredits(int amount)
     {
+        // add the money
         currentCredits += amount;
-        UpdateCreditUI();
-    }
-
-    private void UpdateCreditUI()
-    {
-        if (UIManager.Instance != null)
-        {
-            UIManager.Instance.UpdateCreditText(currentCredits);
-        }
+        
+        // immediately save the new credit balance to the hard drive/registry
+        PlayerPrefs.SetInt("PlayerCredits", currentCredits);
+        PlayerPrefs.Save();
+        
+        // update the visual text on screen
+        UpdateCreditsUI();
+        
+        Debug.Log("DEBUG: Added " + amount + " credits. New total: " + currentCredits);
     }
 }

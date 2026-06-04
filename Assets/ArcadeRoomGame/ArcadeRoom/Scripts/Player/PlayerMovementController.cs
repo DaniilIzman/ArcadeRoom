@@ -1,6 +1,9 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(CharacterController))]
+[RequireComponent(typeof(AudioSource))]
+
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement Speeds")]
@@ -18,8 +21,8 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Audio Clips")]
     public AudioClip jumpSound;
-    public AudioClip crouchDownSound;
-    public AudioClip standUpSound;
+    public AudioClip crouchDownSound;  
+    public AudioClip standUpSound;     
     public AudioClip[] walkFootsteps;
     public AudioClip[] sprintFootsteps;
     public AudioClip[] crouchFootsteps;
@@ -35,17 +38,21 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 velocity;
     private bool isGrounded;
     private float stepTimer;
+    private bool wasCrouching = false;
 
     // state separation
     [HideInInspector] public bool isPausedByMenu = false;
     [HideInInspector] public bool isFrozenByArcade = false;
     [HideInInspector] public bool isShopping = false;
-    private bool wasCrouching = false;
     public bool IsGrounded => isGrounded; 
 
     public static bool restorePosition = false;
     public static Vector3 savedPos;
     public static Quaternion savedRot;
+
+    // debug tracking
+    private Vector3 initialSpawnPosition;
+    private Quaternion initialSpawnRotation;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
@@ -60,6 +67,9 @@ public class PlayerMovement : MonoBehaviour
         controller = GetComponent<CharacterController>();
         audioSource = GetComponent<AudioSource>();
 
+        initialSpawnPosition = transform.position;
+        initialSpawnRotation = transform.rotation;
+
         if (restorePosition)
         {
             controller.enabled = false;
@@ -73,9 +83,13 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            DebugResetPlayer();
+        }
+
         isGrounded = controller.isGrounded;
         
-        // state check
         if (isPausedByMenu || isFrozenByArcade || isShopping)
         {
             controller.Move(Vector3.zero);
@@ -94,7 +108,6 @@ public class PlayerMovement : MonoBehaviour
         bool isCrouching = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
         bool isSprinting = Input.GetKey(KeyCode.LeftShift) && z > 0 && !isCrouching;
 
-        // detect exactly when the crouch state changes to play the sound
         if (isCrouching && !wasCrouching && isGrounded)
         {
             if (crouchDownSound != null) audioSource.PlayOneShot(crouchDownSound, footstepVolume);
@@ -103,7 +116,7 @@ public class PlayerMovement : MonoBehaviour
         {
             if (standUpSound != null) audioSource.PlayOneShot(standUpSound, footstepVolume);
         }
-        wasCrouching = isCrouching; // update the tracking variable for the next frame
+        wasCrouching = isCrouching; 
 
         float currentSpeed = walkSpeed;
         if (isSprinting) currentSpeed = sprintSpeed;
@@ -114,7 +127,6 @@ public class PlayerMovement : MonoBehaviour
 
         controller.height = isCrouching ? crouchingHeight : standingHeight;
 
-        // handle Audio
         HandleMovementAudio(x, z, isSprinting, isCrouching);
 
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
@@ -127,11 +139,33 @@ public class PlayerMovement : MonoBehaviour
         controller.Move(velocity * Time.deltaTime);
     }
 
+private void DebugResetPlayer()
+    {
+        Debug.Log("DEBUG: Initiating Full World Reset...");
+
+        // wipe the shop JSON data
+        if (ShopManager.Instance != null)
+        {
+            ShopManager.Instance.ResetShopProgress();
+        }
+
+        // wipe the player's credits
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.ResetCredits();
+        }
+
+        // reload the active scene. 
+        // this instantly destroys all spawned items, resets NPC interaction states, 
+        // places the player back at the original spawn point, and rebuilds the Shop UI.
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        SceneManager.LoadScene(currentSceneIndex);
+    }
+
     #region Audio Logic
 
     private void HandleMovementAudio(float x, float z, bool isSprinting, bool isCrouching)
     {
-        // check if player is actually providing movement input
         bool isMoving = (Mathf.Abs(x) > 0.1f || Mathf.Abs(z) > 0.1f);
 
         if (isGrounded && isMoving)
@@ -159,7 +193,6 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            // reset timer when stopping so the next step happens immediately upon moving again
             stepTimer = 0f; 
         }
     }
