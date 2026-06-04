@@ -22,7 +22,7 @@ public class PlayerMovement : MonoBehaviour
     // state separation
     [HideInInspector] public bool isPausedByMenu = false;
     [HideInInspector] public bool isFrozenByArcade = false;
-    
+    [HideInInspector] public bool isShopping = false;
     public bool IsGrounded => isGrounded; 
 
     public static bool restorePosition = false;
@@ -56,8 +56,8 @@ public class PlayerMovement : MonoBehaviour
     {
         isGrounded = controller.isGrounded;
         
-        // dual state check
-        if (isPausedByMenu || isFrozenByArcade)
+        // state check
+        if (isPausedByMenu || isFrozenByArcade || isShopping)
         {
             controller.Move(Vector3.zero);
             velocity = Vector3.zero;

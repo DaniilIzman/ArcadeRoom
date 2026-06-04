@@ -12,7 +12,7 @@ public class PlayerCamera : MonoBehaviour
     // state separation
     [HideInInspector] public bool isPausedByMenu = false;
     [HideInInspector] public bool isFrozenByArcade = false;
-
+    [HideInInspector] public bool isShopping = false;
     public static bool restorePitch = false;
     public static float savedPitch = 0f;
 
@@ -37,8 +37,8 @@ public class PlayerCamera : MonoBehaviour
 
     private void Update()
     {
-        // dual state check
-        if (isPausedByMenu || isFrozenByArcade) return; 
+        // state check
+        if (isPausedByMenu || isFrozenByArcade || isShopping) return;
 
         float mouseX = Input.GetAxisRaw("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxisRaw("Mouse Y") * mouseSensitivity;
