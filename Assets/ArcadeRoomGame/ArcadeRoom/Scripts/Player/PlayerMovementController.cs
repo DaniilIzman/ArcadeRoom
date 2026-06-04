@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement Speeds")]
@@ -15,9 +16,23 @@ public class PlayerMovement : MonoBehaviour
     public float standingHeight = 2f;
     public float crouchingHeight = 1f;
 
+    [Header("Audio Clips")]
+    public AudioClip jumpSound;
+    public AudioClip[] walkFootsteps;
+    public AudioClip[] sprintFootsteps;
+    public AudioClip[] crouchFootsteps;
+
+    [Header("Audio Timings & Volume")]
+    public float walkStepInterval = 0.5f;
+    public float sprintStepInterval = 0.3f;
+    public float crouchStepInterval = 0.7f;
+    [Range(0f, 1f)] public float footstepVolume = 0.5f;
+
     private CharacterController controller;
+    private AudioSource audioSource;
     private Vector3 velocity;
     private bool isGrounded;
+    private float stepTimer;
 
     // state separation
     [HideInInspector] public bool isPausedByMenu = false;
@@ -40,6 +55,7 @@ public class PlayerMovement : MonoBehaviour
     private void Start()
     {
         controller = GetComponent<CharacterController>();
+        audioSource = GetComponent<AudioSource>();
 
         if (restorePosition)
         {
@@ -84,12 +100,71 @@ public class PlayerMovement : MonoBehaviour
 
         controller.height = isCrouching ? crouchingHeight : standingHeight;
 
+        // handle Audio
+        HandleMovementAudio(x, z, isSprinting, isCrouching);
+
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            PlayJumpSound();
         }
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
+
+    #region Audio Logic
+
+    private void HandleMovementAudio(float x, float z, bool isSprinting, bool isCrouching)
+    {
+        // check if player is actually providing movement input
+        bool isMoving = (Mathf.Abs(x) > 0.1f || Mathf.Abs(z) > 0.1f);
+
+        if (isGrounded && isMoving)
+        {
+            stepTimer -= Time.deltaTime;
+
+            if (stepTimer <= 0f)
+            {
+                if (isSprinting)
+                {
+                    PlayRandomFootstep(sprintFootsteps);
+                    stepTimer = sprintStepInterval;
+                }
+                else if (isCrouching)
+                {
+                    PlayRandomFootstep(crouchFootsteps);
+                    stepTimer = crouchStepInterval;
+                }
+                else
+                {
+                    PlayRandomFootstep(walkFootsteps);
+                    stepTimer = walkStepInterval;
+                }
+            }
+        }
+        else
+        {
+            // reset timer when stopping so the next step happens immediately upon moving again
+            stepTimer = 0f; 
+        }
+    }
+
+    private void PlayRandomFootstep(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0 || audioSource == null) return;
+        
+        int randomIndex = Random.Range(0, clips.Length);
+        audioSource.PlayOneShot(clips[randomIndex], footstepVolume);
+    }
+
+    private void PlayJumpSound()
+    {
+        if (jumpSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(jumpSound, footstepVolume);
+        }
+    }
+
+    #endregion
 }
