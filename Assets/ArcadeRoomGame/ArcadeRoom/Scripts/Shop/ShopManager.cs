@@ -50,13 +50,16 @@ public class ShopManager : MonoBehaviour
 
     private string saveFilePath;
     private ShopSaveData saveData = new ShopSaveData();
+    private int activeSlot;
 
     private void Awake()
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
         else Instance = this;
 
-        saveFilePath = Application.persistentDataPath + "/shopProgress.json";
+        // fetch the chosen slot and dynamically build the JSON file path
+        activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        saveFilePath = Application.persistentDataPath + $"/shopProgress_Slot{activeSlot}.json";
     }
 
     private void Start()
@@ -82,12 +85,12 @@ public class ShopManager : MonoBehaviour
         {
             string jsonContent = File.ReadAllText(saveFilePath);
             saveData = JsonUtility.FromJson<ShopSaveData>(jsonContent);
-            Debug.Log("Game Loaded successfully from: " + saveFilePath);
+            Debug.Log($"Slot {activeSlot} Loaded successfully from: " + saveFilePath);
         }
         else
         {
             saveData = new ShopSaveData();
-            Debug.Log("No save file found. Creating new save data.");
+            Debug.Log($"No save file found for Slot {activeSlot}. Creating new save data.");
         }
     }
 
@@ -122,7 +125,6 @@ public class ShopManager : MonoBehaviour
             {
                 UpdateItemButtonUI(item);
                 
-                // spawn the physical item into the world if it was loaded from the save file
                 if (item.prefab != null && item.spawnPoint != null) 
                 {
                     Instantiate(item.prefab, item.spawnPoint.position, item.spawnPoint.rotation);
@@ -222,6 +224,6 @@ public class ShopManager : MonoBehaviour
     {
         saveData.boughtItems.Clear();
         SaveGameData(); 
-        Debug.Log("DEBUG: Shop JSON save file has been wiped.");
+        Debug.Log($"DEBUG: Shop JSON save file for Slot {activeSlot} has been wiped.");
     }
 }
