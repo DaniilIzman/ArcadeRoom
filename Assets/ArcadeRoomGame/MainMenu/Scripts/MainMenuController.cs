@@ -27,6 +27,7 @@ public class MainMenuController : MonoBehaviour
 
     [Header("Slot Selection UI")]
     public TextMeshProUGUI[] slotInfoTexts; 
+    public GameObject[] slotFolderButtons;
     public TextMeshProUGUI slotPanelTitle;  
 
     [Header("Settings Controls")]
@@ -67,7 +68,6 @@ public class MainMenuController : MonoBehaviour
         settingsPanel.SetActive(false);
         slotSelectionPanel.SetActive(false);
 
-        // check if any saves exist globally to lock/unlock the main Continue button
         UpdateContinueButtonInteractivity();
 
         InitializeResolutionOptions();
@@ -109,7 +109,7 @@ public class MainMenuController : MonoBehaviour
     {
         slotSelectionPanel.SetActive(false);
         mainPanel.SetActive(true);
-        UpdateContinueButtonInteractivity(); // recalculate in case they went back
+        UpdateContinueButtonInteractivity(); 
     }
 
     public void QuitGame()
@@ -120,7 +120,6 @@ public class MainMenuController : MonoBehaviour
 
     private void UpdateContinueButtonInteractivity()
     {
-        // checks if at least one slot contains data
         bool anySaveExists = PlayerPrefs.GetInt("Slot_1_HasData", 0) == 1 ||
                              PlayerPrefs.GetInt("Slot_2_HasData", 0) == 1 ||
                              PlayerPrefs.GetInt("Slot_3_HasData", 0) == 1;
@@ -130,7 +129,6 @@ public class MainMenuController : MonoBehaviour
             continueButton.interactable = anySaveExists;
         }
 
-        // handles the half-transparency cleanly
         if (continueButtonCanvasGroup != null)
         {
             continueButtonCanvasGroup.alpha = anySaveExists ? 1.0f : 0.5f;
@@ -149,6 +147,7 @@ public class MainMenuController : MonoBehaviour
             int slotNumber = i + 1;
             bool hasData = PlayerPrefs.GetInt($"Slot_{slotNumber}_HasData", 0) == 1;
 
+            // Handle Text
             if (slotInfoTexts.Length > i && slotInfoTexts[i] != null)
             {
                 if (hasData)
@@ -161,6 +160,12 @@ public class MainMenuController : MonoBehaviour
                     slotInfoTexts[i].text = $"Slot {slotNumber}\n<color=#888888><size=80%>Empty</size></color>";
                 }
             }
+
+            // handle Folder Button Visibility
+            if (slotFolderButtons.Length > i && slotFolderButtons[i] != null)
+            {
+                slotFolderButtons[i].SetActive(hasData);
+            }
         }
     }
 
@@ -170,14 +175,10 @@ public class MainMenuController : MonoBehaviour
 
         if (currentSlotMode == SlotMenuMode.NewGame)
         {
-            // wipe old files belonging specifically to this chosen slot number
             WipeSlotData(slotNumber);
             
-            // write completely fresh validation trackers
             PlayerPrefs.SetInt($"Slot_{slotNumber}_HasData", 1);
-            PlayerPrefs.SetString($"Slot_{slotNumber}_Timestamp", DateTime.Now.ToString("g")); // e.g. 6/5/2026 3:30 PM
-            
-            // inform the gameplay scene exactly which profile index it must load
+            PlayerPrefs.SetString($"Slot_{slotNumber}_Timestamp", DateTime.Now.ToString("g")); 
             PlayerPrefs.SetInt("Global_LastPlayedSlot", slotNumber);
             PlayerPrefs.Save();
 
@@ -191,7 +192,6 @@ public class MainMenuController : MonoBehaviour
                 return; 
             }
 
-            // update timestamp to make it the most recent save file
             PlayerPrefs.SetString($"Slot_{slotNumber}_Timestamp", DateTime.Now.ToString("g"));
             PlayerPrefs.SetInt("Global_LastPlayedSlot", slotNumber);
             PlayerPrefs.Save();
@@ -200,31 +200,20 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    // delete slot function
     public void DeleteSlot(int slotNumber)
     {
-        // delete all the data for this slot
         WipeSlotData(slotNumber);
-
-        // update the UI texts so the slot reads "Empty" again
-        RefreshSlotUI();
-
-        // immediately check if all slots are now empty. If so, this disables the Continue button
+        RefreshSlotUI(); // This now automatically hides the folder button!
         UpdateContinueButtonInteractivity();
-        
         Debug.Log($"Slot {slotNumber} successfully deleted.");
     }
 
     private void WipeSlotData(int slotNumber)
     {
-        // delete slot configuration flags
         PlayerPrefs.DeleteKey($"Slot_{slotNumber}_HasData");
         PlayerPrefs.DeleteKey($"Slot_{slotNumber}_Timestamp");
-
-        // delete economy save tied to this slot
         PlayerPrefs.DeleteKey($"PlayerCredits_Slot{slotNumber}");
         
-        // delete json progress maps tied to this slot
         string jsonPath = Application.persistentDataPath + $"/shopProgress_Slot{slotNumber}.json";
         if (System.IO.File.Exists(jsonPath))
         {
@@ -232,6 +221,14 @@ public class MainMenuController : MonoBehaviour
         }
         
         PlayerPrefs.Save();
+    }
+
+    // Now accepts the slot number to log exactly which file you are checking
+    public void OpenSaveDirectory(int slotNumber)
+    {
+        string path = Application.persistentDataPath;
+        Application.OpenURL("file://" + path);
+        Debug.Log($"Opening save folder to check data for Slot {slotNumber}. Path: {path}");
     }
 
     private IEnumerator DelayedLoadRoutine()
