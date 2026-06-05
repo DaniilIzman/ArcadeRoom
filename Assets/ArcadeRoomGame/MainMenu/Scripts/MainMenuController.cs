@@ -200,6 +200,21 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    // delete slot function
+    public void DeleteSlot(int slotNumber)
+    {
+        // delete all the data for this slot
+        WipeSlotData(slotNumber);
+
+        // update the UI texts so the slot reads "Empty" again
+        RefreshSlotUI();
+
+        // immediately check if all slots are now empty. If so, this disables the Continue button
+        UpdateContinueButtonInteractivity();
+        
+        Debug.Log($"Slot {slotNumber} successfully deleted.");
+    }
+
     private void WipeSlotData(int slotNumber)
     {
         // delete slot configuration flags
