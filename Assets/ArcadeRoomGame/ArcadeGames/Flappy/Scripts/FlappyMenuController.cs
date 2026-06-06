@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
-// --- DATA CONTAINERS FOR OUR LEADERBOARD ---
+// data container for learderboard
 [System.Serializable]
 public class FlappyScoreEntry
 {
@@ -19,7 +19,6 @@ public class FlappyLeaderboard
 {
     public List<FlappyScoreEntry> entries = new List<FlappyScoreEntry>();
 }
-// -------------------------------------------
 
 public class FlappyMenuController : MonoBehaviour
 {
@@ -53,17 +52,17 @@ public class FlappyMenuController : MonoBehaviour
 
     private void Start()
     {
-        activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
-
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
+
+        activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
 
         mainPanel.SetActive(true);
         personalBestPanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        WireMenuAudio(); // set up the dynamic runtime listeners
-        LoadSettings();  // load the values and push them through those listeners
+        WireMenuAudio(); 
+        LoadSettings();  
     }
 
     private void Update()
@@ -108,11 +107,14 @@ public class FlappyMenuController : MonoBehaviour
         personalBestPanel.SetActive(false);
         settingsPanel.SetActive(false);
         mainPanel.SetActive(true);
-        PlayerPrefs.Save(); 
+        
+        // save volumes to the registry ONLY when leaving the settings menu
+        SaveAudioSettingsToDisk(); 
     }
 
     public void LeaveArcadeMachine()
     {
+        SaveAudioSettingsToDisk(); // safety save before scene transition
         SceneManager.LoadScene(arcadeRoomSceneName);
     }
 
@@ -142,38 +144,34 @@ public class FlappyMenuController : MonoBehaviour
             leaderboardText.text = displayText;
         }
     }
-    // settings: music, ui, sfx
+
+    public void ClearFlightLog()
+    {
+        // delete the specific save key for the active slot
+        PlayerPrefs.DeleteKey($"FlappyHistory_Slot{activeSlot}");
+        PlayerPrefs.Save();
+
+        // immediately refresh the UI so the text updates to "NO FLIGHT DATA FOUND"
+        LoadAndDisplayLeaderboard();
+    }
+
+    // settings for audio(music, sfx, ui)
 
     private void LoadSettings()
     {
-        // pull down the global values seamlessly
         if (musicSlider) musicSlider.value = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
         if (sfxSlider) sfxSlider.value = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
         if (uiSlider) uiSlider.value = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f);
 
-        // force an evaluation to make sure the mixer is perfectly matched up on startup
         SetMusicVolume(musicSlider ? musicSlider.value : 0.75f);
         SetSFXVolume(sfxSlider ? sfxSlider.value : 0.75f);
         SetUIVolume(uiSlider ? uiSlider.value : 0.75f);
     }
 
-    public void SetMusicVolume(float val)
-    {
-        ApplyVolumeToMixer("MusicVol", val);
-        PlayerPrefs.SetFloat("Setting_MusicVol", val);
-    }
-
-    public void SetSFXVolume(float val)
-    {
-        ApplyVolumeToMixer("SFXVol", val);
-        PlayerPrefs.SetFloat("Setting_SFXVol", val);
-    }
-
-    public void SetUIVolume(float val)
-    {
-        ApplyVolumeToMixer("UIVol", val);
-        PlayerPrefs.SetFloat("Setting_UIVol", val);
-    }
+    // update only the active mixer(no registry spam)
+    public void SetMusicVolume(float val) => ApplyVolumeToMixer("MusicVol", val);
+    public void SetSFXVolume(float val) => ApplyVolumeToMixer("SFXVol", val);
+    public void SetUIVolume(float val) => ApplyVolumeToMixer("UIVol", val);
 
     private void ApplyVolumeToMixer(string parameterName, float sliderValue)
     {
@@ -187,6 +185,15 @@ public class FlappyMenuController : MonoBehaviour
         {
             audioMixer.SetFloat(parameterName, Mathf.Log10(sliderValue) * 20f);
         }
+    }
+
+    // safely commit the slider states to the OS once
+    private void SaveAudioSettingsToDisk()
+    {
+        if (musicSlider) PlayerPrefs.SetFloat("Setting_MusicVol", musicSlider.value);
+        if (sfxSlider) PlayerPrefs.SetFloat("Setting_SFXVol", sfxSlider.value);
+        if (uiSlider) PlayerPrefs.SetFloat("Setting_UIVol", uiSlider.value);
+        PlayerPrefs.Save();
     }
 
     // local audio feedback
@@ -207,7 +214,7 @@ public class FlappyMenuController : MonoBehaviour
 
         if (musicSlider)
         {
-            musicSlider.onValueChanged.RemoveAllListeners(); // clear any editor runtime pollution
+            musicSlider.onValueChanged.RemoveAllListeners(); 
             musicSlider.onValueChanged.AddListener(SetMusicVolume);
             musicSlider.onValueChanged.AddListener((val) => PlaySliderTick());
         }
@@ -224,11 +231,10 @@ public class FlappyMenuController : MonoBehaviour
             uiSlider.onValueChanged.AddListener((val) => PlaySliderTick());
         }
 
-        // auto-wire local click sounds to all canvas buttons
         Button[] menuButtons = GetComponentsInChildren<Button>(true);
         foreach (Button btn in menuButtons)
         {
-            btn.onClick.RemoveAllListeners(); // safe clean baseline
+            btn.onClick.RemoveAllListeners(); 
             btn.onClick.AddListener(PlayClickSound);
         }
     }

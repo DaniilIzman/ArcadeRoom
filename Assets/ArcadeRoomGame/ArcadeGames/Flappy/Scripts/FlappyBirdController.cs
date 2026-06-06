@@ -12,9 +12,9 @@ public class BirdControls : MonoBehaviour
     public float maxDownwardVelocity = -10f;
 
     [Header("Rotation Visuals")]
-    public float maxUpwardAngle = 30f;    // Snaps to this angle when flapping up
-    public float maxDownwardAngle = -75f; // Rotates down to this angle when diving
-    public float rotationSmoothness = 7f; // How fast the bird transitions between angles
+    public float maxUpwardAngle = 30f;    // snaps to this angle when flapping up
+    public float maxDownwardAngle = -75f; // rotates down to this angle when diving
+    public float rotationSmoothness = 7f; // how fast the bird transitions between angles
 
     [Header("Audio Settings")]
     public AudioClip jumpSound;
@@ -36,6 +36,8 @@ public class BirdControls : MonoBehaviour
 
     private void Update()
     {
+        if (FlappyGameManager.Instance.isGameOver) return;
+        
         if (canJump)
         {
             if (Input.GetKeyDown(KeyCode.Space))
@@ -45,7 +47,7 @@ public class BirdControls : MonoBehaviour
         }
 
         LimitVelocity();
-        ApplyAestheticRotation(); // Visual rotation calculations happen here
+        ApplyAestheticRotation(); // visual rotation calculations
     }
 
     private void ExecuteJump()
@@ -60,6 +62,13 @@ public class BirdControls : MonoBehaviour
         {
             audioSource.PlayOneShot(jumpSound);
         }
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        // when hit a pipe or the floor
+        DisableControls();
+        FlappyGameManager.Instance.GameOver();
     }
 
     private void LimitVelocity()
@@ -79,13 +88,13 @@ public class BirdControls : MonoBehaviour
 
     private void ApplyAestheticRotation()
     {
-        // 1. Find out where our current velocity sits between falling flat-out and moving up flat-out
+        // find out where our current velocity sits between falling flat-out and moving up flat-out
         float velocityRatio = Mathf.InverseLerp(maxDownwardVelocity, maxUpwardVelocity, structuralRigidbody.linearVelocity.y);
 
-        // 2. Map that ratio directly to our desired target rotation angles
+        // map that ratio directly to our desired target rotation angles
         float targetZAngle = Mathf.Lerp(maxDownwardAngle, maxUpwardAngle, velocityRatio);
 
-        // 3. Smoothly interpolate from our current rotation to that target rotation over time
+        // smoothly interpolate from our current rotation to that target rotation over time
         Quaternion currentRotation = transform.rotation;
         Quaternion targetRotation = Quaternion.Euler(0, 0, targetZAngle);
         
