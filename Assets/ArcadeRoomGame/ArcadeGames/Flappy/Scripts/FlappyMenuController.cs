@@ -31,8 +31,9 @@ public class FlappyMenuController : MonoBehaviour
     [Header("Personal Best UI")]
     public TextMeshProUGUI leaderboardText;
 
-    [Header("Settings UI")]
+    [Header("Audio Settings & Routing")]
     public AudioMixer audioMixer;
+    public AudioMixerGroup uiMixerGroup; 
     public Slider musicSlider;
     public Slider sfxSlider;
     public Slider uiSlider; 
@@ -54,23 +55,25 @@ public class FlappyMenuController : MonoBehaviour
     {
         activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
 
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
         mainPanel.SetActive(true);
         personalBestPanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        LoadSettings();
-        WireMenuAudio();
+        WireMenuAudio(); // set up the dynamic runtime listeners
+        LoadSettings();  // load the values and push them through those listeners
     }
 
     private void Update()
     {
-        // Handle Escape key routing
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (settingsPanel.activeSelf || personalBestPanel.activeSelf)
             {
                 ReturnToMainMenu();
-                PlayClickSound(); // Local sound
+                PlayClickSound(); 
             }
             else if (mainPanel.activeSelf)
             {
@@ -79,9 +82,7 @@ public class FlappyMenuController : MonoBehaviour
         }
     }
 
-    // ==========================================
-    // --- MAIN NAVIGATION ---
-    // ==========================================
+    // main navigation
 
     public void StartGame()
     {
@@ -115,9 +116,7 @@ public class FlappyMenuController : MonoBehaviour
         SceneManager.LoadScene(arcadeRoomSceneName);
     }
 
-    // ==========================================
-    // --- LEADERBOARD LOGIC ---
-    // ==========================================
+    // leaderboard logic
 
     private void LoadAndDisplayLeaderboard()
     {
@@ -143,17 +142,16 @@ public class FlappyMenuController : MonoBehaviour
             leaderboardText.text = displayText;
         }
     }
-
-    // ==========================================
-    // --- SETTINGS (MUSIC, SFX, UI) ---
-    // ==========================================
+    // settings: music, ui, sfx
 
     private void LoadSettings()
     {
+        // pull down the global values seamlessly
         if (musicSlider) musicSlider.value = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
         if (sfxSlider) sfxSlider.value = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
         if (uiSlider) uiSlider.value = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f);
 
+        // force an evaluation to make sure the mixer is perfectly matched up on startup
         SetMusicVolume(musicSlider ? musicSlider.value : 0.75f);
         SetSFXVolume(sfxSlider ? sfxSlider.value : 0.75f);
         SetUIVolume(uiSlider ? uiSlider.value : 0.75f);
@@ -191,13 +189,10 @@ public class FlappyMenuController : MonoBehaviour
         }
     }
 
-    // ==========================================
-    // --- AUDIO FEEDBACK (LOCAL) ---
-    // ==========================================
+    // local audio feedback
 
     private void WireMenuAudio()
     {
-        // Auto-create local AudioSource if missing
         if (uiAudioSource == null) 
         {
             uiAudioSource = gameObject.AddComponent<AudioSource>();
@@ -205,15 +200,35 @@ public class FlappyMenuController : MonoBehaviour
             uiAudioSource.ignoreListenerPause = true; 
         }
 
-        // Hook up slider movement sounds locally
-        if (musicSlider) musicSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        if (sfxSlider) sfxSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        if (uiSlider) uiSlider.onValueChanged.AddListener((val) => PlaySliderTick());
+        if (uiMixerGroup != null)
+        {
+            uiAudioSource.outputAudioMixerGroup = uiMixerGroup;
+        }
 
-        // Auto-wire local click sounds to all canvas buttons
+        if (musicSlider)
+        {
+            musicSlider.onValueChanged.RemoveAllListeners(); // clear any editor runtime pollution
+            musicSlider.onValueChanged.AddListener(SetMusicVolume);
+            musicSlider.onValueChanged.AddListener((val) => PlaySliderTick());
+        }
+        if (sfxSlider)
+        {
+            sfxSlider.onValueChanged.RemoveAllListeners();
+            sfxSlider.onValueChanged.AddListener(SetSFXVolume);
+            sfxSlider.onValueChanged.AddListener((val) => PlaySliderTick());
+        }
+        if (uiSlider)
+        {
+            uiSlider.onValueChanged.RemoveAllListeners();
+            uiSlider.onValueChanged.AddListener(SetUIVolume);
+            uiSlider.onValueChanged.AddListener((val) => PlaySliderTick());
+        }
+
+        // auto-wire local click sounds to all canvas buttons
         Button[] menuButtons = GetComponentsInChildren<Button>(true);
         foreach (Button btn in menuButtons)
         {
+            btn.onClick.RemoveAllListeners(); // safe clean baseline
             btn.onClick.AddListener(PlayClickSound);
         }
     }
