@@ -14,6 +14,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/ArcadeRoomGame/MainMenu/Scenes/MainMenu.unity
     guid: 7e03d0550def315469568803d9626ff5
+  - enabled: 1
+    path: Assets/ArcadeRoomGame/ArcadeGames/Flappy/Scenes/FlappyMenu.unity
+    guid: c829b25bf470e6c49b5196094150e34e
+  - enabled: 1
+    path: Assets/ArcadeRoomGame/ArcadeGames/Flappy/Scenes/FlappyLevel.unity
+    guid: b653d0ef424c9634ab83e19ea0a8a8fd
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
