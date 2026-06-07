@@ -7,7 +7,6 @@ public class ArcadeMachine : MonoBehaviour
 {
     [Header("Game Settings")]
     public string gameName = "Space Invaders";
-    public int playCost = 5;
     public float loadDelay = 2f; 
     
     [Header("Scene Routing")]
@@ -15,7 +14,7 @@ public class ArcadeMachine : MonoBehaviour
 
     [Header("Audio Settings")]
     public AudioClip promptSound;
-    public AudioClip insertCoinSound;
+    public AudioClip cabinetBootSound; // Renamed from insertCoinSound for clarity
 
     [Header("UI Transitions")]
     public Image fadeOverlay;
@@ -41,8 +40,9 @@ public class ArcadeMachine : MonoBehaviour
             {
                 if (!promptActive)
                 {
+                    // Cleaned up UI Prompt: No longer displays a credit cost string
                     if (UIManager.Instance != null)
-                        UIManager.Instance.ShowPrompt("Press E to play " + gameName + " (" + playCost + " Credits)");
+                        UIManager.Instance.ShowPrompt("Press E to play " + gameName);
                     promptActive = true;
 
                     if (audioSource != null && promptSound != null)
@@ -51,7 +51,7 @@ public class ArcadeMachine : MonoBehaviour
 
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    AttemptPlayGame();
+                    BootArcadeCabinet();
                 }
             }
             else
@@ -65,19 +65,12 @@ public class ArcadeMachine : MonoBehaviour
         }
     }
 
-    private void AttemptPlayGame()
+    private void BootArcadeCabinet()
     {
-        if (GameManager.Instance != null && GameManager.Instance.TrySpendCredits(playCost))
-        {
-            if (audioSource != null && insertCoinSound != null)
-                audioSource.PlayOneShot(insertCoinSound);
+        if (audioSource != null && cabinetBootSound != null)
+            audioSource.PlayOneShot(cabinetBootSound);
 
-            StartCoroutine(PlayGameSequence());
-        }
-        else
-        {
-            Debug.Log("Cannot play " + gameName + ". Insufficient credits.");
-        }
+        StartCoroutine(PlayGameSequence());
     }
 
     private IEnumerator PlayGameSequence()
@@ -103,7 +96,7 @@ public class ArcadeMachine : MonoBehaviour
             PlayerCamera.restorePitch = true;
         }
 
-        // acade freeze target fix
+        // arcade freeze target fix
         if (playerInZone != null) playerInZone.isFrozenByArcade = true;
         if (cameraLook != null) cameraLook.isFrozenByArcade = true;
 
@@ -122,7 +115,7 @@ public class ArcadeMachine : MonoBehaviour
 
             while (elapsedTime < loadDelay)
             {
-                elapsedTime += Time.unscaledDeltaTime; // sse unscaled to ignore menu pauses
+                elapsedTime += Time.unscaledDeltaTime; // use unscaled to ignore menu pauses
                 fadeColor.a = Mathf.Clamp01(elapsedTime / loadDelay);
                 fadeOverlay.color = fadeColor;
                 yield return null; 
@@ -141,7 +134,6 @@ public class ArcadeMachine : MonoBehaviour
         {
             Debug.LogWarning("Scene name is empty! Unfreezing player.");
             
-            // --- Arcade Unfreeze Target Fix ---
             if (playerInZone != null) playerInZone.isFrozenByArcade = false;
             if (cameraLook != null) cameraLook.isFrozenByArcade = false;
             if (EscapeMenu.Instance != null) EscapeMenu.Instance.UnlockMenu();
