@@ -11,10 +11,20 @@ public class SpaceInvadersManager : MonoBehaviour
     public int playerLives = 3;
     public int costPerPlay = 10;
     
-    [Header("UI Panels")]
-    public GameObject gameOverPanel;
+    [Header("Scoring & Economy")]
+    public int currentScore = 0;
+    [Tooltip("How many points equal 1 Arcade Credit?")]
+    public int pointsPerCredit = 50; 
+    
+    [Header("UI - Mid Game")]
     public TextMeshProUGUI livesText;
+    public TextMeshProUGUI scoreText; //in-game score display
     public TextMeshProUGUI warningText;
+    
+    [Header("UI - Game Over")]
+    public GameObject gameOverPanel;
+    public TextMeshProUGUI finalScoreText;     // gme Over score
+    public TextMeshProUGUI creditsEarnedText;  // game Over payout info
     
     [Header("Scene Routing")]
     public string mainMenuSceneName = "SpaceInvadersMenu";
@@ -25,19 +35,26 @@ public class SpaceInvadersManager : MonoBehaviour
 
     private void Awake()
     {
-        // set up the Singleton so other scripts can find this manager instantly
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
 
     private void Start()
     {
-        Time.timeScale = 1f; // ensure time is running normally when the scene loads
+        Time.timeScale = 1f; 
         gameOverPanel.SetActive(false);
         if (warningText) warningText.gameObject.SetActive(false);
 
-        // load the player's wallet data
         activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        UpdateUI();
+    }
+
+    // called by invaders when they die
+    public void AddScore(int points)
+    {
+        if (isGameOver) return;
+        
+        currentScore += points;
         UpdateUI();
     }
 
@@ -52,10 +69,6 @@ public class SpaceInvadersManager : MonoBehaviour
         {
             TriggerGameOver();
         }
-        else
-        {
-            Debug.Log($"Life lost! Remaining lives: {playerLives}");
-        }
     }
 
     public void TriggerGameOver()
@@ -63,43 +76,55 @@ public class SpaceInvadersManager : MonoBehaviour
         if (isGameOver) return;
         isGameOver = true;
         
-        // start the safe freeze routine instead of doing it instantly
         StartCoroutine(SafeGameOverRoutine());
     }
 
     private IEnumerator SafeGameOverRoutine()
     {
-        // wait until the very end of the current frame (lets PhysX finish its job)
         yield return new WaitForEndOfFrame();
 
-        Time.timeScale = 0f; // now it is safe to freeze time
+        Time.timeScale = 0f; 
         
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
         
+        // credit conversion logic
+        int creditsEarned = currentScore / pointsPerCredit;
+
+        // load wallet, add newly earned credits, and save
+        string creditsKey = $"PlayerCredits_Slot{activeSlot}";
+        currentCredits = PlayerPrefs.GetInt(creditsKey, 500);
+        currentCredits += creditsEarned;
+        
+        PlayerPrefs.SetInt(creditsKey, currentCredits);
+        PlayerPrefs.Save();
+
+        // update game over ui
+        if (finalScoreText != null) finalScoreText.text = $"FINAL SCORE: {currentScore}";
+        if (creditsEarnedText != null) 
+        {
+            creditsEarnedText.text = $"CREDITS EARNED: +{creditsEarned}\nNEW BALANCE: {currentCredits}";
+        }
+        
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
     }
 
-    // ui button event - try again
     public void TryAgain()
     {
         string creditsKey = $"PlayerCredits_Slot{activeSlot}";
-        currentCredits = PlayerPrefs.GetInt(creditsKey, 500);
+        currentCredits = PlayerPrefs.GetInt(creditsKey, 500); // reads the newly updated balance
 
         if (currentCredits >= costPerPlay)
         {
-            // deduct credits and save
             currentCredits -= costPerPlay;
             PlayerPrefs.SetInt(creditsKey, currentCredits);
             PlayerPrefs.Save();
 
-            // unfreeze and reload the current active scene
             Time.timeScale = 1f;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
         else
         {
-            // display warning if they are broke!
             if (warningText != null)
             {
                 warningText.text = $"INSERT COIN! ({costPerPlay} REQ)";
@@ -108,18 +133,15 @@ public class SpaceInvadersManager : MonoBehaviour
         }
     }
 
-    // ui button event: Main Menu
     public void ReturnToMainMenu()
     {
-        Time.timeScale = 1f; // always unfreeze before loading a new scene
+        Time.timeScale = 1f; 
         SceneManager.LoadScene(mainMenuSceneName);
     }
 
     private void UpdateUI()
     {
-        if (livesText != null)
-        {
-            livesText.text = $"LIVES: {playerLives}";
-        }
+        if (livesText != null) livesText.text = $"LIVES: {playerLives}";
+        if (scoreText != null) scoreText.text = $"SCORE: {currentScore}";
     }
 }

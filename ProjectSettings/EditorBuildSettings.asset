@@ -20,6 +20,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/ArcadeRoomGame/ArcadeGames/Flappy/Scenes/FlappyLevel.unity
     guid: b653d0ef424c9634ab83e19ea0a8a8fd
+  - enabled: 1
+    path: Assets/ArcadeRoomGame/ArcadeGames/SpaceInvaders/Scenes/SpaceInvadersMainMenu.unity
+    guid: ab50a525c5cadee42b390a01754dba45
+  - enabled: 1
+    path: Assets/ArcadeRoomGame/ArcadeGames/SpaceInvaders/Scenes/SpaceInvadersLevel.unity
+    guid: 28f2f8680bc82ca41b8529266ae7c1aa
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

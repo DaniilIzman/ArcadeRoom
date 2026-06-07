@@ -5,8 +5,11 @@ public class InvaderCollision : MonoBehaviour
     private InvaderGridManager gridManager;
     
     [Header("Invasion Settings")]
-    [Tooltip("The exact Z coordinate that causes a Game Over when an alien crosses it.")]
     public float deathLineZ = -3.5f; 
+
+    [Header("Scoring")]
+    [Tooltip("How many points the player gets for shooting this specific alien type.")]
+    public int pointValue = 10;
 
     private void Start()
     {
@@ -15,8 +18,6 @@ public class InvaderCollision : MonoBehaviour
 
     private void Update()
     {
-        // 100% Bulletproof math check. No Rigidbodies or Triggers required.
-        // (Change .z to .y if your game is built standing up instead of flat on the ground)
         if (transform.position.z <= deathLineZ)
         {
             if (SpaceInvadersManager.Instance != null)
@@ -31,6 +32,12 @@ public class InvaderCollision : MonoBehaviour
     {
         if (other.CompareTag("Player") || other.transform.root.CompareTag("Player")) 
         {
+            // give the player points
+            if (SpaceInvadersManager.Instance != null)
+            {
+                SpaceInvadersManager.Instance.AddScore(pointValue);
+            }
+
             if (gridManager != null) gridManager.OnInvaderDestroyed(gameObject);
             else Destroy(gameObject);
         }
@@ -38,7 +45,7 @@ public class InvaderCollision : MonoBehaviour
 
     public bool IsFrontRowClear()
     {
-        Ray ray = new Ray(transform.position, Vector3.back); // Change to Vector3.down if using Y axis
+        Ray ray = new Ray(transform.position, Vector3.back); 
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, 25f))
