@@ -36,8 +36,8 @@ public class BirdControls : MonoBehaviour
 
     private void Update()
     {
-        if (FlappyGameManager.Instance.isGameOver) return;
-        
+        if (FlappyGameManager.Instance.isGameOver || FlappyGameManager.Instance.isPaused) return;
+
         if (canJump)
         {
             if (Input.GetKeyDown(KeyCode.Space))
@@ -47,7 +47,7 @@ public class BirdControls : MonoBehaviour
         }
 
         LimitVelocity();
-        ApplyAestheticRotation(); // visual rotation calculations
+        ApplyAestheticRotation();
     }
 
     private void ExecuteJump()

@@ -43,6 +43,7 @@ public class GameManager : MonoBehaviour
             currentCredits = PlayerPrefs.GetInt($"PlayerCredits_Slot{activeSlot}", startingCredits);
         }
         
+        
         UpdateCreditsUI();
     }
 
