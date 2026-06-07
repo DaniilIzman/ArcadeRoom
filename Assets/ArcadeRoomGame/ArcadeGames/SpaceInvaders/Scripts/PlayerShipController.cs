@@ -66,4 +66,14 @@ public class PlayerShipController : MonoBehaviour
             audioSource.PlayOneShot(shootSound);
         }
     }
+
+    private void OnParticleCollision(GameObject other)
+    {
+        // ensure it is an enemy laser and not our own laser somehow hitting us
+        if (other.CompareTag("EnemyLaser"))
+        {
+            Debug.Log("PLAYER HIT BY ENEMY LASER!");
+            
+        }
+    }
 }
