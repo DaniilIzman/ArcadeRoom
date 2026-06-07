@@ -69,15 +69,13 @@ public class FlappyMenuController : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
+            // If the player is in a sub-menu, escape safely brings him back to the main layout
             if (settingsPanel.activeSelf || personalBestPanel.activeSelf)
             {
                 ReturnToMainMenu();
                 PlayClickSound(); 
             }
-            else if (mainPanel.activeSelf)
-            {
-                LeaveArcadeMachine();
-            }
+            
         }
     }
 
