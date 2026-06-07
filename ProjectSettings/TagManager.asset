@@ -6,11 +6,13 @@ TagManager:
   tags:
   - ArcadeMachine
   - PlayerLaser
+  - Bunker
+  - EnemyLaser
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - PlayerShip
   - Water
   - UI
   - 

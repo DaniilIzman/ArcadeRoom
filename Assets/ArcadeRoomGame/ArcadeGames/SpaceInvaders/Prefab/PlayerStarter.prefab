@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 6161033520973815589}
   - component: {fileID: 6764059313416508440}
   - component: {fileID: 8183384774956094008}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PlayerStarter
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -83,7 +83,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 31.17, y: 13.02, z: 24.25}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &6764059313416508440
 MonoBehaviour:
@@ -210,7 +210,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7328197845215952547}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -293,6 +293,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PlayerModel
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 7caaf0ba83e07254dbdff1638edd18d1, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -315,13 +319,41 @@ PrefabInstance:
       propertyPath: m_Name
       value: ShootParticle
       objectReference: {fileID: 0}
+    - target: {fileID: 443728356586001497, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: m_TagString
+      value: PlayerLaser
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: stopAction
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: CollisionModule.type
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: CollisionModule.enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
       propertyPath: InitialModule.startSize.scalar
       value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: CollisionModule.m_Bounce.scalar
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
       propertyPath: InitialModule.startSpeed.scalar
       value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: CollisionModule.collisionMessages
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4180293236466927219, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
+      propertyPath: CollisionModule.m_EnergyLossOnCollision.scalar
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5829184324651984695, guid: d4fcc148417cf9248a732d73b943150b, type: 3}
       propertyPath: m_LocalPosition.x

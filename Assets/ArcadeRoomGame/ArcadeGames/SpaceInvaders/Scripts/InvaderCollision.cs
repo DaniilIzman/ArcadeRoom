@@ -3,10 +3,28 @@ using UnityEngine;
 public class InvaderCollision : MonoBehaviour
 {
     private InvaderGridManager gridManager;
+    
+    [Header("Invasion Settings")]
+    [Tooltip("The exact Z coordinate that causes a Game Over when an alien crosses it.")]
+    public float deathLineZ = -3.5f; 
 
     private void Start()
     {
         gridManager = GetComponentInParent<InvaderGridManager>(); 
+    }
+
+    private void Update()
+    {
+        // 100% Bulletproof math check. No Rigidbodies or Triggers required.
+        // (Change .z to .y if your game is built standing up instead of flat on the ground)
+        if (transform.position.z <= deathLineZ)
+        {
+            if (SpaceInvadersManager.Instance != null)
+            {
+                Debug.Log("🚨 INVASION SUCCESSFUL! BASE OVERRUN!");
+                SpaceInvadersManager.Instance.TriggerGameOver();
+            }
+        }
     }
 
     private void OnParticleCollision(GameObject other)
@@ -20,7 +38,7 @@ public class InvaderCollision : MonoBehaviour
 
     public bool IsFrontRowClear()
     {
-        Ray ray = new Ray(transform.position, Vector3.back);
+        Ray ray = new Ray(transform.position, Vector3.back); // Change to Vector3.down if using Y axis
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, 25f))
@@ -30,7 +48,6 @@ public class InvaderCollision : MonoBehaviour
         return true; 
     }
 
-    // calls the GridManager's highly optimized particle emitter
     public void FireLaser()
     {
         if (gridManager != null)

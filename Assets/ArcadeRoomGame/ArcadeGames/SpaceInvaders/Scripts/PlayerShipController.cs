@@ -74,6 +74,11 @@ public class PlayerShipController : MonoBehaviour
         {
             Debug.Log("PLAYER HIT BY ENEMY LASER!");
             
+            // tell the manager we took a hit
+            if (SpaceInvadersManager.Instance != null)
+            {
+                SpaceInvadersManager.Instance.LoseLife();
+            }
         }
     }
 }
