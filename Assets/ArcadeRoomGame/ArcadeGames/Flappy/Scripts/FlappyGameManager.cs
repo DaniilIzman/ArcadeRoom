@@ -3,7 +3,6 @@ using UnityEngine.Audio;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
-using System;
 using System.Collections.Generic;
 
 public class FlappyGameManager : MonoBehaviour
@@ -29,8 +28,8 @@ public class FlappyGameManager : MonoBehaviour
     public Slider musicSlider;
     public Slider sfxSlider;
     public Slider uiSlider;
-    public TMP_Dropdown resolutionDropdown; // resolution Dropdown
-    private Resolution[] resolutions;       // stores available screen sizes
+    public TMP_Dropdown resolutionDropdown; 
+    private Resolution[] resolutions;       
 
     [Header("Economy Settings")]
     public int pipesPerCredit = 3;
@@ -39,6 +38,13 @@ public class FlappyGameManager : MonoBehaviour
     public AudioSource audioSource;
     public AudioClip scoreSound;
     public AudioClip deathSound;
+
+    // shared uniform key configurations to prevent lookup typos across files
+    private const string MusicVolKey = "Setting_MusicVol";
+    private const string SfxVolKey = "Setting_SFXVol";
+    private const string UiVolKey = "Setting_UIVol";
+    private const string ResIndexKey = "Setting_ResolutionIndex";
+    private const string SlotKey = "Global_LastPlayedSlot";
 
     public int currentScore { get; private set; } = 0;
     public bool isGameOver { get; private set; } = false;
@@ -53,10 +59,10 @@ public class FlappyGameManager : MonoBehaviour
     {
         Time.timeScale = 1f; 
         
-        if (gameOverPanel != null) gameOverPanel.SetActive(false);
-        if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
-        if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
-        if (pausePanel != null) pausePanel.SetActive(false);
+        // initialize baseline default state for runtime user interfaces
+        if (gameOverPanel) gameOverPanel.SetActive(false);
+        if (pausePanel) pausePanel.SetActive(false);
+        TogglePauseUIContainers(true, false);
         
         UpdateScoreUI();
         WirePauseMenuAudio(); 
@@ -70,7 +76,7 @@ public class FlappyGameManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
-            if (isPaused && pauseSettingsContainer.activeSelf)
+            if (isPaused && pauseSettingsContainer && pauseSettingsContainer.activeSelf)
             {
                 ClosePauseSettings();
             }
@@ -81,19 +87,16 @@ public class FlappyGameManager : MonoBehaviour
         }
     }
 
-    // pause & settings navigation
-
     public void TogglePause()
     {
         isPaused = !isPaused;
         Time.timeScale = isPaused ? 0f : 1f;
         
-        if (pausePanel != null) pausePanel.SetActive(isPaused);
+        if (pausePanel) pausePanel.SetActive(isPaused);
 
         if (isPaused)
         {
-            pauseMenuContainer.SetActive(true);
-            pauseSettingsContainer.SetActive(false);
+            TogglePauseUIContainers(true, false);
             LoadAudioSettings();
         }
         else
@@ -102,20 +105,19 @@ public class FlappyGameManager : MonoBehaviour
         }
     }
 
-    public void OpenPauseSettings()
-    {
-        pauseMenuContainer.SetActive(false);
-        pauseSettingsContainer.SetActive(true);
-    }
+    public void OpenPauseSettings() => TogglePauseUIContainers(false, true);
 
     public void ClosePauseSettings()
     {
         SaveAudioSettingsToDisk(); 
-        pauseSettingsContainer.SetActive(false);
-        pauseMenuContainer.SetActive(true);
+        TogglePauseUIContainers(true, false);
     }
 
-    // video/resolution settings
+    private void TogglePauseUIContainers(bool menuActive, bool settingsActive)
+    {
+        if (pauseMenuContainer) pauseMenuContainer.SetActive(menuActive);
+        if (pauseSettingsContainer) pauseSettingsContainer.SetActive(settingsActive);
+    }
 
     private void InitializeResolutionDropdown()
     {
@@ -127,12 +129,11 @@ public class FlappyGameManager : MonoBehaviour
 
         List<string> options = new List<string>();
         int currentResIndex = 0;
-        int savedResIndex = PlayerPrefs.GetInt("Setting_ResolutionIndex", -1);
+        int savedResIndex = PlayerPrefs.GetInt(ResIndexKey, -1);
 
         for (int i = 0; i < resolutions.Length; i++)
         {
-            // format: 1920 x 1080
-            string option = resolutions[i].width + " x " + resolutions[i].height;
+            string option = $"{resolutions[i].width} x {resolutions[i].height}";
             options.Add(option);
 
             // if no save file exists, default to the monitor's native resolution
@@ -146,58 +147,54 @@ public class FlappyGameManager : MonoBehaviour
             }
         }
 
-        // apply saved resolution if it exists
         if (savedResIndex != -1) currentResIndex = savedResIndex;
 
         resolutionDropdown.AddOptions(options);
         resolutionDropdown.value = currentResIndex;
         resolutionDropdown.RefreshShownValue();
 
-        // listen for user changes
         resolutionDropdown.onValueChanged.RemoveAllListeners();
         resolutionDropdown.onValueChanged.AddListener(SetResolution);
     }
 
     public void SetResolution(int resolutionIndex)
     {
+        if (resolutions == null || resolutionIndex >= resolutions.Length) return;
+        
         Resolution resolution = resolutions[resolutionIndex];
         Screen.SetResolution(resolution.width, resolution.height, Screen.fullScreen);
         
-        // save the index so it persists between the Arcade Room and Flappy Bird
-        PlayerPrefs.SetInt("Setting_ResolutionIndex", resolutionIndex);
+        PlayerPrefs.SetInt(ResIndexKey, resolutionIndex);
         PlayerPrefs.Save();
     }
 
-    // audio settings
-
     private void WirePauseMenuAudio()
     {
-        if (musicSlider)
-        {
-            musicSlider.onValueChanged.RemoveAllListeners(); 
-            musicSlider.onValueChanged.AddListener(SetMusicVolume);
-        }
-        if (sfxSlider)
-        {
-            sfxSlider.onValueChanged.RemoveAllListeners();
-            sfxSlider.onValueChanged.AddListener(SetSFXVolume);
-        }
-        if (uiSlider)
-        {
-            uiSlider.onValueChanged.RemoveAllListeners();
-            uiSlider.onValueChanged.AddListener(SetUIVolume);
-        }
+        ConfigureSlider(musicSlider, SetMusicVolume);
+        ConfigureSlider(sfxSlider, SetSFXVolume);
+        ConfigureSlider(uiSlider, SetUIVolume);
+    }
+
+    private void ConfigureSlider(Slider slider, UnityEngine.Events.UnityAction<float> action)
+    {
+        if (slider == null) return;
+        slider.onValueChanged.RemoveAllListeners();
+        slider.onValueChanged.AddListener(action);
     }
 
     private void LoadAudioSettings()
     {
-        if (musicSlider) musicSlider.value = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
-        if (sfxSlider) sfxSlider.value = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
-        if (uiSlider) uiSlider.value = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f);
+        float targetMusic = PlayerPrefs.GetFloat(MusicVolKey, 0.75f);
+        float targetSfx = PlayerPrefs.GetFloat(SfxVolKey, 0.75f);
+        float targetUi = PlayerPrefs.GetFloat(UiVolKey, 0.75f);
 
-        SetMusicVolume(musicSlider ? musicSlider.value : 0.75f);
-        SetSFXVolume(sfxSlider ? sfxSlider.value : 0.75f);
-        SetUIVolume(uiSlider ? uiSlider.value : 0.75f);
+        if (musicSlider) musicSlider.value = targetMusic;
+        if (sfxSlider) sfxSlider.value = targetSfx;
+        if (uiSlider) uiSlider.value = targetUi;
+
+        SetMusicVolume(targetMusic);
+        SetSFXVolume(targetSfx);
+        SetUIVolume(targetUi);
     }
 
     public void SetMusicVolume(float val) => ApplyVolumeToMixer("MusicVol", val);
@@ -207,20 +204,17 @@ public class FlappyGameManager : MonoBehaviour
     private void ApplyVolumeToMixer(string parameterName, float sliderValue)
     {
         if (audioMixer == null) return;
-        
-        if (sliderValue <= 0.0001f) audioMixer.SetFloat(parameterName, -80f); 
-        else audioMixer.SetFloat(parameterName, Mathf.Log10(sliderValue) * 20f);
+        float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
+        audioMixer.SetFloat(parameterName, targetDb);
     }
 
     private void SaveAudioSettingsToDisk()
     {
-        if (musicSlider) PlayerPrefs.SetFloat("Setting_MusicVol", musicSlider.value);
-        if (sfxSlider) PlayerPrefs.SetFloat("Setting_SFXVol", sfxSlider.value);
-        if (uiSlider) PlayerPrefs.SetFloat("Setting_UIVol", uiSlider.value);
+        if (musicSlider) PlayerPrefs.SetFloat(MusicVolKey, musicSlider.value);
+        if (sfxSlider) PlayerPrefs.SetFloat(SfxVolKey, sfxSlider.value);
+        if (uiSlider) PlayerPrefs.SetFloat(UiVolKey, uiSlider.value);
         PlayerPrefs.Save();
     }
-
-    // scoring and game over logic
 
     public void AddScore()
     {
@@ -229,7 +223,10 @@ public class FlappyGameManager : MonoBehaviour
         currentScore++;
         UpdateScoreUI();
 
-        if (audioSource != null && scoreSound != null) audioSource.PlayOneShot(scoreSound);
+        if (audioSource != null && scoreSound != null)
+        {
+            audioSource.PlayOneShot(scoreSound);
+        }
     }
 
     private void UpdateScoreUI()
@@ -242,47 +239,47 @@ public class FlappyGameManager : MonoBehaviour
         if (isGameOver) return;
         isGameOver = true;
 
-        if (audioSource != null && deathSound != null) audioSource.PlayOneShot(deathSound);
+        if (audioSource != null && deathSound != null)
+        {
+            audioSource.PlayOneShot(deathSound);
+        }
 
         int earnedCredits = currentScore / pipesPerCredit;
         SaveFlightData(earnedCredits); 
 
-        gameOverPanel.SetActive(true);
+        if (gameOverPanel) gameOverPanel.SetActive(true);
         if (finalScoreText != null) finalScoreText.text = $"FINAL SCORE: {currentScore}";
         if (creditsEarnedText != null) creditsEarnedText.text = $"EARNED: {earnedCredits} CREDITS";
     }
 
     private void SaveFlightData(int creditsToAdd)
     {
-        // get the current active save slot
-        int activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
-        
-        // use the exact key from your Arcade Room GameManager
+        int activeSlot = PlayerPrefs.GetInt(SlotKey, 1);
         string creditsKey = $"PlayerCredits_Slot{activeSlot}";
         
-        // fetch current balance (defaulting to 500 to match your startingCredits logic)
         int currentCredits = PlayerPrefs.GetInt(creditsKey, 500);
-        
-        // add the reward and save back to the registry
         PlayerPrefs.SetInt(creditsKey, currentCredits + creditsToAdd);
 
-        // save Leaderboard Data
         string prefsKey = $"FlappyHistory_Slot{activeSlot}";
         FlappyLeaderboard board = new FlappyLeaderboard();
         string json = PlayerPrefs.GetString(prefsKey, "");
-        if (!string.IsNullOrEmpty(json)) board = JsonUtility.FromJson<FlappyLeaderboard>(json);
+        
+        if (!string.IsNullOrEmpty(json))
+        {
+            board = JsonUtility.FromJson<FlappyLeaderboard>(json);
+        }
 
-        FlappyScoreEntry newEntry = new FlappyScoreEntry();
-        newEntry.attemptNumber = board.entries.Count + 1;
-        newEntry.date = System.DateTime.Now.ToString("MM/dd/yy HH:mm");
-        newEntry.score = currentScore;
+        FlappyScoreEntry newEntry = new FlappyScoreEntry
+        {
+            attemptNumber = board.entries.Count + 1,
+            date = System.DateTime.Now.ToString("MM/dd/yy HH:mm"),
+            score = currentScore
+        };
 
         board.entries.Add(newEntry);
         PlayerPrefs.SetString(prefsKey, JsonUtility.ToJson(board));
         PlayerPrefs.Save();
     }
-
-    // button functions
 
     public void ResumeGame()
     {

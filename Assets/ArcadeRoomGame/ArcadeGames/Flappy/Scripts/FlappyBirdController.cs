@@ -19,6 +19,9 @@ public class BirdControls : MonoBehaviour
     [Header("Audio Settings")]
     public AudioClip jumpSound;
 
+    [Header("Destruction Feedback")]
+    public GameObject deathParticlePrefab; // assign your burst/feather particle system prefab here
+
     private Rigidbody2D structuralRigidbody;
     private AudioSource audioSource;
     private bool canJump = true;
@@ -38,12 +41,9 @@ public class BirdControls : MonoBehaviour
     {
         if (FlappyGameManager.Instance.isGameOver || FlappyGameManager.Instance.isPaused) return;
 
-        if (canJump)
+        if (canJump && (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0)))
         {
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                ExecuteJump();
-            }
+            ExecuteJump();
         }
 
         LimitVelocity();
@@ -66,7 +66,14 @@ public class BirdControls : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        // when hit a pipe or the floor
+        if (!canJump) return; // prevents double-triggering calculations if hitting multiple colliders simultaneously
+
+        // trigger destruction visual feedback instantly at the impact point
+        if (deathParticlePrefab != null)
+        {
+            Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
+        }
+
         DisableControls();
         FlappyGameManager.Instance.GameOver();
     }
@@ -74,16 +81,9 @@ public class BirdControls : MonoBehaviour
     private void LimitVelocity()
     {
         float currentYVelocity = structuralRigidbody.linearVelocity.y;
-
-        if (currentYVelocity > maxUpwardVelocity)
-        {
-            structuralRigidbody.linearVelocity = new Vector2(structuralRigidbody.linearVelocity.x, maxUpwardVelocity);
-        }
+        float clampedY = Mathf.Clamp(currentYVelocity, maxDownwardVelocity, maxUpwardVelocity);
         
-        if (currentYVelocity < maxDownwardVelocity)
-        {
-            structuralRigidbody.linearVelocity = new Vector2(structuralRigidbody.linearVelocity.x, maxDownwardVelocity);
-        }
+        structuralRigidbody.linearVelocity = new Vector2(structuralRigidbody.linearVelocity.x, clampedY);
     }
 
     private void ApplyAestheticRotation()

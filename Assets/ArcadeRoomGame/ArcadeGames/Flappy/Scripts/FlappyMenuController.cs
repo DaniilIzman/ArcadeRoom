@@ -5,7 +5,6 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
-// data container for learderboard
 [System.Serializable]
 public class FlappyScoreEntry
 {
@@ -45,9 +44,14 @@ public class FlappyMenuController : MonoBehaviour
     public AudioSource uiAudioSource;
     public AudioClip clickSound;
     public AudioClip sliderTickSound;
+
+    private const string MusicVolKey = "Setting_MusicVol";
+    private const string SfxVolKey = "Setting_SFXVol";
+    private const string UiVolKey = "Setting_UIVol";
+    private const string SlotKey = "Global_LastPlayedSlot";
+
     private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime;
-
     private int activeSlot;
 
     private void Start()
@@ -55,12 +59,9 @@ public class FlappyMenuController : MonoBehaviour
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        activeSlot = PlayerPrefs.GetInt(SlotKey, 1);
 
-        mainPanel.SetActive(true);
-        personalBestPanel.SetActive(false);
-        settingsPanel.SetActive(false);
-
+        ToggleMenuPanels(true, false, false);
         WireMenuAudio(); 
         LoadSettings();  
     }
@@ -69,54 +70,42 @@ public class FlappyMenuController : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            // If the player is in a sub-menu, escape safely brings him back to the main layout
             if (settingsPanel.activeSelf || personalBestPanel.activeSelf)
             {
                 ReturnToMainMenu();
                 PlayClickSound(); 
             }
-            
         }
     }
 
-    // main navigation
-
-    public void StartGame()
-    {
-        SceneManager.LoadScene(gameSceneName);
-    }
+    public void StartGame() => SceneManager.LoadScene(gameSceneName);
 
     public void OpenPersonalBest()
     {
-        mainPanel.SetActive(false);
-        personalBestPanel.SetActive(true);
-
+        ToggleMenuPanels(false, true, false);
         LoadAndDisplayLeaderboard();
     }
 
-    public void OpenSettings()
-    {
-        mainPanel.SetActive(false);
-        settingsPanel.SetActive(true);
-    }
+    public void OpenSettings() => ToggleMenuPanels(false, false, true);
 
     public void ReturnToMainMenu()
     {
-        personalBestPanel.SetActive(false);
-        settingsPanel.SetActive(false);
-        mainPanel.SetActive(true);
-        
-        // save volumes to the registry ONLY when leaving the settings menu
+        ToggleMenuPanels(true, false, false);
         SaveAudioSettingsToDisk(); 
     }
 
     public void LeaveArcadeMachine()
     {
-        SaveAudioSettingsToDisk(); // safety save before scene transition
+        SaveAudioSettingsToDisk(); 
         SceneManager.LoadScene(arcadeRoomSceneName);
     }
 
-    // leaderboard logic
+    private void ToggleMenuPanels(bool main, bool pb, bool settings)
+    {
+        if (mainPanel) mainPanel.SetActive(main);
+        if (personalBestPanel) personalBestPanel.SetActive(pb);
+        if (settingsPanel) settingsPanel.SetActive(settings);
+    }
 
     private void LoadAndDisplayLeaderboard()
     {
@@ -124,7 +113,7 @@ public class FlappyMenuController : MonoBehaviour
 
         if (string.IsNullOrEmpty(json))
         {
-            leaderboardText.text = "NO FLIGHT DATA FOUND.\n\nINSERT COIN TO PLAY!";
+            if (leaderboardText) leaderboardText.text = "NO FLIGHT DATA FOUND.\n\nINSERT COIN TO PLAY!";
             return;
         }
 
@@ -145,28 +134,26 @@ public class FlappyMenuController : MonoBehaviour
 
     public void ClearFlightLog()
     {
-        // delete the specific save key for the active slot
         PlayerPrefs.DeleteKey($"FlappyHistory_Slot{activeSlot}");
         PlayerPrefs.Save();
-
-        // immediately refresh the UI so the text updates to "NO FLIGHT DATA FOUND"
         LoadAndDisplayLeaderboard();
     }
 
-    // settings for audio(music, sfx, ui)
-
     private void LoadSettings()
     {
-        if (musicSlider) musicSlider.value = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
-        if (sfxSlider) sfxSlider.value = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
-        if (uiSlider) uiSlider.value = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f);
+        float targetMusic = PlayerPrefs.GetFloat(MusicVolKey, 0.75f);
+        float targetSfx = PlayerPrefs.GetFloat(SfxVolKey, 0.75f);
+        float targetUi = PlayerPrefs.GetFloat(UiVolKey, 0.75f);
 
-        SetMusicVolume(musicSlider ? musicSlider.value : 0.75f);
-        SetSFXVolume(sfxSlider ? sfxSlider.value : 0.75f);
-        SetUIVolume(uiSlider ? uiSlider.value : 0.75f);
+        if (musicSlider) musicSlider.value = targetMusic;
+        if (sfxSlider) sfxSlider.value = targetSfx;
+        if (uiSlider) uiSlider.value = targetUi;
+
+        SetMusicVolume(targetMusic);
+        SetSFXVolume(targetSfx);
+        SetUIVolume(targetUi);
     }
 
-    // update only the active mixer(no registry spam)
     public void SetMusicVolume(float val) => ApplyVolumeToMixer("MusicVol", val);
     public void SetSFXVolume(float val) => ApplyVolumeToMixer("SFXVol", val);
     public void SetUIVolume(float val) => ApplyVolumeToMixer("UIVol", val);
@@ -174,27 +161,17 @@ public class FlappyMenuController : MonoBehaviour
     private void ApplyVolumeToMixer(string parameterName, float sliderValue)
     {
         if (audioMixer == null) return;
-        
-        if (sliderValue <= 0.0001f) 
-        {
-            audioMixer.SetFloat(parameterName, -80f); 
-        }
-        else 
-        {
-            audioMixer.SetFloat(parameterName, Mathf.Log10(sliderValue) * 20f);
-        }
+        float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
+        audioMixer.SetFloat(parameterName, targetDb);
     }
 
-    // safely commit the slider states to the OS once
     private void SaveAudioSettingsToDisk()
     {
-        if (musicSlider) PlayerPrefs.SetFloat("Setting_MusicVol", musicSlider.value);
-        if (sfxSlider) PlayerPrefs.SetFloat("Setting_SFXVol", sfxSlider.value);
-        if (uiSlider) PlayerPrefs.SetFloat("Setting_UIVol", uiSlider.value);
+        if (musicSlider) PlayerPrefs.SetFloat(MusicVolKey, musicSlider.value);
+        if (sfxSlider) PlayerPrefs.SetFloat(SfxVolKey, sfxSlider.value);
+        if (uiSlider) PlayerPrefs.SetFloat(UiVolKey, uiSlider.value);
         PlayerPrefs.Save();
     }
-
-    // local audio feedback
 
     private void WireMenuAudio()
     {
@@ -205,29 +182,11 @@ public class FlappyMenuController : MonoBehaviour
             uiAudioSource.ignoreListenerPause = true; 
         }
 
-        if (uiMixerGroup != null)
-        {
-            uiAudioSource.outputAudioMixerGroup = uiMixerGroup;
-        }
+        if (uiMixerGroup != null) uiAudioSource.outputAudioMixerGroup = uiMixerGroup;
 
-        if (musicSlider)
-        {
-            musicSlider.onValueChanged.RemoveAllListeners(); 
-            musicSlider.onValueChanged.AddListener(SetMusicVolume);
-            musicSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
-        if (sfxSlider)
-        {
-            sfxSlider.onValueChanged.RemoveAllListeners();
-            sfxSlider.onValueChanged.AddListener(SetSFXVolume);
-            sfxSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
-        if (uiSlider)
-        {
-            uiSlider.onValueChanged.RemoveAllListeners();
-            uiSlider.onValueChanged.AddListener(SetUIVolume);
-            uiSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
+        ConfigureMenuSlider(musicSlider, SetMusicVolume);
+        ConfigureMenuSlider(sfxSlider, SetSFXVolume);
+        ConfigureMenuSlider(uiSlider, SetUIVolume);
 
         Button[] menuButtons = GetComponentsInChildren<Button>(true);
         foreach (Button btn in menuButtons)
@@ -237,12 +196,17 @@ public class FlappyMenuController : MonoBehaviour
         }
     }
 
+    private void ConfigureMenuSlider(Slider slider, UnityEngine.Events.UnityAction<float> action)
+    {
+        if (slider == null) return;
+        slider.onValueChanged.RemoveAllListeners();
+        slider.onValueChanged.AddListener(action);
+        slider.onValueChanged.AddListener((val) => PlaySliderTick());
+    }
+
     public void PlayClickSound() 
     { 
-        if (uiAudioSource != null && clickSound != null) 
-        {
-            uiAudioSource.PlayOneShot(clickSound); 
-        }
+        if (uiAudioSource != null && clickSound != null) uiAudioSource.PlayOneShot(clickSound); 
     }
 
     public void PlaySliderTick()
