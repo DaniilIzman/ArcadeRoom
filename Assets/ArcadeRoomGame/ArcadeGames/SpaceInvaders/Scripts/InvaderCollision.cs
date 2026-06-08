@@ -1,8 +1,10 @@
 using UnityEngine;
 
+[RequireComponent(typeof(AudioSource))] // Ensures the alien has an AudioSource attached
 public class InvaderCollision : MonoBehaviour
 {
     private InvaderGridManager gridManager;
+    private AudioSource sfxAudioSource;
     private bool hasBreached = false; // safeguards breach actions from duplicate loop calls
     
     [Header("Invasion Settings")]
@@ -24,6 +26,9 @@ public class InvaderCollision : MonoBehaviour
     {
         // locate the parent grid manager to report status back up the chain
         gridManager = GetComponentInParent<InvaderGridManager>(); 
+        
+        // FIX 1: Initialize the audio source 
+        sfxAudioSource = GetComponent<AudioSource>();
     }
 
     private void Update()
@@ -40,10 +45,17 @@ public class InvaderCollision : MonoBehaviour
             }
         }
     }
-
+    
+    public void PlayEnemyExplosionSound(AudioClip clip)
+    {
+        if (sfxAudioSource != null && clip != null)
+        {
+            sfxAudioSource.PlayOneShot(clip);
+        }
+    }
+    
     private void OnParticleCollision(GameObject other)
     {
-        // evaluate if the incoming particle belongs to the player or its hierarchy
         if (other.CompareTag(playerTag) || other.transform.root.CompareTag(playerTag)) 
         {
             // safe arcade explosion handling
@@ -54,10 +66,11 @@ public class InvaderCollision : MonoBehaviour
                 Destroy(explosionParticles.gameObject, explosionParticles.main.duration);
             }
 
+            // --- THE FIX ---
+            // PlayClipAtPoint creates a temporary audio object that survives the alien's destruction
             if (explosionSound != null)
             {
-                // play audio out in world space so destruction doesn't clip audio mid-play
-                AudioSource.PlayClipAtPoint(explosionSound, transform.position);
+                AudioSource.PlayClipAtPoint(explosionSound, transform.position, 1.0f);
             }
 
             // award points to the global economy and score tracker
@@ -69,11 +82,11 @@ public class InvaderCollision : MonoBehaviour
             // notify the grid array that this alien is wiped, or immediately destroy if rogue
             if (gridManager != null)
             {
-                gridManager.OnInvaderDestroyed(gameObject);
+                gridManager.OnInvaderDestroyed(gameObject); // Object is destroyed here!
             }
             else 
             {
-                Destroy(gameObject);
+                Destroy(gameObject); // Or here!
             }
         }
     }

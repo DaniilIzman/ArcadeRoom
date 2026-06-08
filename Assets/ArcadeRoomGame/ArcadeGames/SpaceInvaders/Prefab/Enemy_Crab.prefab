@@ -11,10 +11,10 @@ GameObject:
   - component: {fileID: 407961565616744350}
   - component: {fileID: 1796074502886827120}
   - component: {fileID: 3489581881423561801}
-  - component: {fileID: 3007151088617031523}
+  - component: {fileID: 8093366466483495501}
   m_Layer: 0
   m_Name: Enemy_Crab
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -73,7 +73,7 @@ MonoBehaviour:
   pointValue: 20
   explosionParticles: {fileID: 4761412225055499251}
   explosionSound: {fileID: 8300000, guid: 5f4790e7806c4d043a188fe0c610a670, type: 3}
---- !u!82 &3007151088617031523
+--- !u!82 &8093366466483495501
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

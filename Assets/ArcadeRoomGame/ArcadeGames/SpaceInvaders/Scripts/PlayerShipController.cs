@@ -89,7 +89,6 @@ public class PlayerShipController : MonoBehaviour
         // look for collisions specifically tagged as hostile lasers
         if (other.CompareTag(enemyLaserTag))
         {
-            Debug.Log("PLAYER HIT BY ENEMY LASER!");
 
             // trigger localized visual explosion feedback
             if (explosionParticles != null)

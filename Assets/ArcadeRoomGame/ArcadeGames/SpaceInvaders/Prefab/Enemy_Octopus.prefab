@@ -133,10 +133,10 @@ GameObject:
   - component: {fileID: 6417576937358410676}
   - component: {fileID: 3841333275917405857}
   - component: {fileID: 4524517904045243066}
-  - component: {fileID: -5089541736197503442}
+  - component: {fileID: 4578725031162138849}
   m_Layer: 0
   m_Name: Enemy_Octopus
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -195,7 +195,7 @@ MonoBehaviour:
   pointValue: 10
   explosionParticles: {fileID: 6676241817617985897}
   explosionSound: {fileID: 8300000, guid: 5f4790e7806c4d043a188fe0c610a670, type: 3}
---- !u!82 &-5089541736197503442
+--- !u!82 &4578725031162138849
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

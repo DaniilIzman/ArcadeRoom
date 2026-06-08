@@ -41,8 +41,10 @@ public class SpaceInvadersManager : MonoBehaviour
     public Slider uiSlider;
     public TMP_Dropdown resolutionDropdown; 
 
+    // --- CHANGED: Audio sources split into three ---
     [Header("Audio Sources")]
-    public AudioSource uiAndSfxSource; 
+    public AudioSource sfxAudioSource; 
+    public AudioSource uiAudioSource; 
     public AudioSource bgmAudioSource;  
 
     [Header("Audio Clips - Gameplay")]
@@ -99,11 +101,11 @@ public class SpaceInvadersManager : MonoBehaviour
             return;
         }
 
-        // audio source safety check
-        if (bgmAudioSource != null && uiAndSfxSource != null && bgmAudioSource == uiAndSfxSource)
+        // updated audio source safety check
+        if (bgmAudioSource != null && (bgmAudioSource == sfxAudioSource || bgmAudioSource == uiAudioSource))
         {
-            Debug.LogError("CRITICAL: Your BGM and UI Audio Sources are assigned to the exact same component! This will crash Unity. Please add a second Audio Source component and separate them.");
-            uiAndSfxSource = null; 
+            sfxAudioSource = null; 
+            uiAudioSource = null;
         }
     }
 
@@ -193,7 +195,13 @@ public class SpaceInvadersManager : MonoBehaviour
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
     }
-
+    private void SaveAudioSettingsToDisk()
+    {
+        if (musicSlider != null) PlayerPrefs.SetFloat(prefMusic, musicSlider.value);
+        if (sfxSlider != null) PlayerPrefs.SetFloat(prefSfx, sfxSlider.value);
+        if (uiSlider != null) PlayerPrefs.SetFloat(prefUi, uiSlider.value);
+        PlayerPrefs.Save();
+    }
     public void ResumeGame()
     {
         PlayButtonClickSound();
@@ -309,28 +317,22 @@ public class SpaceInvadersManager : MonoBehaviour
         audioMixer.SetFloat(parameterName, targetDb);
     }
 
-    private void SaveAudioSettingsToDisk()
-    {
-        if (musicSlider != null) PlayerPrefs.SetFloat(prefMusic, musicSlider.value);
-        if (sfxSlider != null) PlayerPrefs.SetFloat(prefSfx, sfxSlider.value);
-        if (uiSlider != null) PlayerPrefs.SetFloat(prefUi, uiSlider.value);
-        PlayerPrefs.Save();
-    }
-
+    // --- CHANGED: UI Sounds route to uiAudioSource ---
     public void PlayButtonClickSound()
     {
-        if (uiAndSfxSource != null && buttonClickSound != null)
+        if (uiAudioSource != null && buttonClickSound != null)
         {
-            uiAndSfxSource.PlayOneShot(buttonClickSound);
+            uiAudioSource.PlayOneShot(buttonClickSound);
         }
     }
 
+    // --- CHANGED: UI Sounds route to uiAudioSource ---
     private void PlaySliderTickSound()
     {
         // limit the rate of slider tick sounds to prevent audio clipping
-        if (Time.unscaledTime >= nextSliderSoundTime && uiAndSfxSource != null && sliderTickSound != null)
+        if (Time.unscaledTime >= nextSliderSoundTime && uiAudioSource != null && sliderTickSound != null)
         {
-            uiAndSfxSource.PlayOneShot(sliderTickSound);
+            uiAudioSource.PlayOneShot(sliderTickSound);
             nextSliderSoundTime = Time.unscaledTime + 0.06f; 
         }
     }
@@ -339,11 +341,12 @@ public class SpaceInvadersManager : MonoBehaviour
     // space invaders core logics & cinematics
     // -----------------------------------------------------------
 
+    // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
     public void AnnounceNewWave(int waveNumber)
     {
-        if (uiAndSfxSource != null && newWaveSound != null)
+        if (sfxAudioSource != null && newWaveSound != null)
         {
-            uiAndSfxSource.PlayOneShot(newWaveSound);
+            sfxAudioSource.PlayOneShot(newWaveSound);
         }
 
         if (waveText != null)
@@ -386,9 +389,10 @@ public class SpaceInvadersManager : MonoBehaviour
 
         if (playerLives <= 0)
         {
-            if (uiAndSfxSource != null && playerExplosionSound != null)
+            // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
+            if (sfxAudioSource != null && playerExplosionSound != null)
             {
-                uiAndSfxSource.PlayOneShot(playerExplosionSound);
+                sfxAudioSource.PlayOneShot(playerExplosionSound);
             }
 
             TriggerGameOver();
@@ -458,9 +462,10 @@ public class SpaceInvadersManager : MonoBehaviour
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        if (uiAndSfxSource != null && gameOverSound != null)
+        // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
+        if (sfxAudioSource != null && gameOverSound != null)
         {
-            uiAndSfxSource.PlayOneShot(gameOverSound);
+            sfxAudioSource.PlayOneShot(gameOverSound);
         }
         
         // calculate currency reward

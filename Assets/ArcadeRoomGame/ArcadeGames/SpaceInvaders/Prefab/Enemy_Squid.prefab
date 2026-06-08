@@ -166,10 +166,10 @@ GameObject:
   - component: {fileID: 1006979160819054783}
   - component: {fileID: 2958714222486342485}
   - component: {fileID: 1015571300721875723}
-  - component: {fileID: -2940963700817711331}
+  - component: {fileID: 1006597899361776777}
   m_Layer: 0
   m_Name: Enemy_Squid
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -249,7 +249,7 @@ MonoBehaviour:
   pointValue: 30
   explosionParticles: {fileID: 5269882992697573993}
   explosionSound: {fileID: 8300000, guid: 5f4790e7806c4d043a188fe0c610a670, type: 3}
---- !u!82 &-2940963700817711331
+--- !u!82 &1006597899361776777
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

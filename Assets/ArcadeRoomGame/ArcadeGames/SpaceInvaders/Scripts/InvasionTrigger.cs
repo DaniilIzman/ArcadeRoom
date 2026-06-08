@@ -25,7 +25,6 @@ public class InvasionTrigger : MonoBehaviour
         if (other.CompareTag(invaderTag))
         {
             hasBreached = true;
-            Debug.LogWarning("INVASION BREACHED! Aliens reached the player line.");
 
             // notify the core loop to terminate the game session
             if (SpaceInvadersManager.Instance != null)
