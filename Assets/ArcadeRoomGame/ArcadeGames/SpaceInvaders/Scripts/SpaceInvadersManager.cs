@@ -289,6 +289,14 @@ public class SpaceInvadersManager : MonoBehaviour
         }
     }
 
+    public void PlayEnemyExplosionSound(AudioClip clip)
+    {
+        if (sfxAudioSource != null && clip != null)
+        {
+            sfxAudioSource.PlayOneShot(clip);
+        }
+    }
+
     private void LoadAudioSettings()
     {
         float cachedMusic = PlayerPrefs.GetFloat(prefMusic, 0.75f);

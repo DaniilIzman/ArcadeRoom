@@ -1,10 +1,8 @@
 using UnityEngine;
 
-[RequireComponent(typeof(AudioSource))] // Ensures the alien has an AudioSource attached
 public class InvaderCollision : MonoBehaviour
 {
     private InvaderGridManager gridManager;
-    private AudioSource sfxAudioSource;
     private bool hasBreached = false; // safeguards breach actions from duplicate loop calls
     
     [Header("Invasion Settings")]
@@ -26,9 +24,6 @@ public class InvaderCollision : MonoBehaviour
     {
         // locate the parent grid manager to report status back up the chain
         gridManager = GetComponentInParent<InvaderGridManager>(); 
-        
-        // FIX 1: Initialize the audio source 
-        sfxAudioSource = GetComponent<AudioSource>();
     }
 
     private void Update()
@@ -45,15 +40,7 @@ public class InvaderCollision : MonoBehaviour
             }
         }
     }
-    
-    public void PlayEnemyExplosionSound(AudioClip clip)
-    {
-        if (sfxAudioSource != null && clip != null)
-        {
-            sfxAudioSource.PlayOneShot(clip);
-        }
-    }
-    
+
     private void OnParticleCollision(GameObject other)
     {
         if (other.CompareTag(playerTag) || other.transform.root.CompareTag(playerTag)) 
@@ -66,11 +53,13 @@ public class InvaderCollision : MonoBehaviour
                 Destroy(explosionParticles.gameObject, explosionParticles.main.duration);
             }
 
-            // --- THE FIX ---
-            // PlayClipAtPoint creates a temporary audio object that survives the alien's destruction
-            if (explosionSound != null)
+            // --- THE REAL FIX ---
+            // Send the sound to the persistent Manager! 
+            // 1. It survives the enemy's destruction.
+            // 2. It respects the SFX slider because the Manager's AudioSource uses the Mixer.
+            if (explosionSound != null && SpaceInvadersManager.Instance != null)
             {
-                AudioSource.PlayClipAtPoint(explosionSound, transform.position, 1.0f);
+                SpaceInvadersManager.Instance.PlayEnemyExplosionSound(explosionSound);
             }
 
             // award points to the global economy and score tracker
