@@ -54,6 +54,12 @@ public class InvaderGridManager : MonoBehaviour
         float currentFireRate = Mathf.Max(0.4f, baseFireRate - ((waveCount - 1) * fireRateSpeedUpPerWave));
         shotCooldownTimer = currentFireRate;
 
+        // tell UI to display wave number and play matching tracking audio
+        if (SpaceInvadersManager.Instance != null)
+        {
+            SpaceInvadersManager.Instance.AnnounceNewWave(waveCount);
+        }
+
         SpawnGrid();
     }
 

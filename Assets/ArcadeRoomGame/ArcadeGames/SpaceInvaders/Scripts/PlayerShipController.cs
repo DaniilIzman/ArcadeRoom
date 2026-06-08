@@ -9,14 +9,17 @@ public class PlayerShipController : MonoBehaviour
     public float xMax = 8f;
 
     [Header("Combat (Particle System)")]
-    [Tooltip("The Particle System that acts as your laser cannons.")]
     public ParticleSystem laserParticles;
     public float fireRate = 0.5f; 
     private float nextFireTime = 0f;
 
+    [Header("VFX Feedback")]
+    public ParticleSystem explosionParticles; // assign the player's custom child explosion system
+
     [Header("Audio Feedback")]
     public AudioSource audioSource;
     public AudioClip shootSound;
+    public AudioClip hitSound; // sound when the ship gets struck
 
     private Rigidbody rb;
     private Vector3 movement;
@@ -69,12 +72,20 @@ public class PlayerShipController : MonoBehaviour
 
     private void OnParticleCollision(GameObject other)
     {
-        // ensure it is an enemy laser and not our own laser somehow hitting us
         if (other.CompareTag("EnemyLaser"))
         {
             Debug.Log("PLAYER HIT BY ENEMY LASER!");
+
+            // fire Player Explosion Elements
+            if (explosionParticles != null)
+            {
+                explosionParticles.Play();
+            }
+            if (audioSource != null && hitSound != null)
+            {
+                audioSource.PlayOneShot(hitSound);
+            }
             
-            // tell the manager we took a hit
             if (SpaceInvadersManager.Instance != null)
             {
                 SpaceInvadersManager.Instance.LoseLife();

@@ -3,13 +3,19 @@ using UnityEngine;
 public class InvaderCollision : MonoBehaviour
 {
     private InvaderGridManager gridManager;
+    private bool hasBreached = false; // NEW: Safeguards breach actions from duplicate loop calls
     
     [Header("Invasion Settings")]
     public float deathLineZ = -3.5f; 
 
     [Header("Scoring")]
-    [Tooltip("How many points the player gets for shooting this specific alien type.")]
     public int pointValue = 10;
+
+    [Header("VFX Feedback")]
+    public ParticleSystem explosionParticles;
+
+    [Header("Audio Feedback")]
+    public AudioClip explosionSound;
 
     private void Start()
     {
@@ -18,11 +24,12 @@ public class InvaderCollision : MonoBehaviour
 
     private void Update()
     {
-        if (transform.position.z <= deathLineZ)
+        if (transform.position.z <= deathLineZ && !hasBreached)
         {
+            hasBreached = true; // block subsequent frames
+
             if (SpaceInvadersManager.Instance != null)
             {
-                Debug.Log("🚨 INVASION SUCCESSFUL! BASE OVERRUN!");
                 SpaceInvadersManager.Instance.TriggerGameOver();
             }
         }
@@ -32,7 +39,20 @@ public class InvaderCollision : MonoBehaviour
     {
         if (other.CompareTag("Player") || other.transform.root.CompareTag("Player")) 
         {
-            // give the player points
+            //safe Arcade Explosion handling
+            if (explosionParticles != null)
+            {
+                explosionParticles.transform.SetParent(null); // safely isolate from parent before destruction
+                explosionParticles.Play();
+                Destroy(explosionParticles.gameObject, explosionParticles.main.duration);
+            }
+
+            if (explosionSound != null)
+            {
+                // play audio out in world space so destruction doesn't clip audio mid-play
+                AudioSource.PlayClipAtPoint(explosionSound, transform.position);
+            }
+
             if (SpaceInvadersManager.Instance != null)
             {
                 SpaceInvadersManager.Instance.AddScore(pointValue);
