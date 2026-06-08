@@ -32,26 +32,38 @@ public class SpaceInvadersMenuController : MonoBehaviour
     public AudioClip clickSound;
     public AudioClip errorSound;
     public AudioClip sliderTickSound;
+
+    // playerpref string keys cached to prevent typos and optimize lookups
+    private const string MusicVolKey = "Setting_MusicVol";
+    private const string SfxVolKey = "Setting_SFXVol";
+    private const string UiVolKey = "Setting_UIVol";
+    private const string SlotKey = "Global_LastPlayedSlot";
+
     private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime;
-
     private int activeSlot;
     private int currentCredits;
+    private string creditsPrefsKey;
 
     private void Start()
     {
+        // configure initial cursor state for UI interaction
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        // resolve save slots and runtime credit keys
+        activeSlot = PlayerPrefs.GetInt(SlotKey, 1);
+        creditsPrefsKey = $"PlayerCredits_Slot{activeSlot}";
         
-        // hide warnings on start
+        // ensure warning layouts are hidden cleanly on bootup
         if (insufficientCreditsWarningText) insufficientCreditsWarningText.gameObject.SetActive(false);
 
+        // establish baseline panel visibility state
         mainPanel.SetActive(true);
         settingsPanel.SetActive(false);
         scoreAdvancePanel.SetActive(false);
 
+        // run system initializations
         WireMenuAudio(); 
         LoadSettings();  
         RefreshCreditsUI();
@@ -59,7 +71,7 @@ public class SpaceInvadersMenuController : MonoBehaviour
 
     private void Update()
     {
-        // safe backward navigation using Escape
+        // process backward context escape navigation safely
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (settingsPanel.activeSelf || scoreAdvancePanel.activeSelf)
@@ -70,12 +82,10 @@ public class SpaceInvadersMenuController : MonoBehaviour
         }
     }
 
-    // main navigation & economy
-
     private void RefreshCreditsUI()
     {
-        string creditsKey = $"PlayerCredits_Slot{activeSlot}";
-        currentCredits = PlayerPrefs.GetInt(creditsKey, 500); // defaults to 500
+        // load player balance based on calculated active key profile
+        currentCredits = PlayerPrefs.GetInt(creditsPrefsKey, 500); 
         
         if (creditsText != null)
         {
@@ -85,20 +95,19 @@ public class SpaceInvadersMenuController : MonoBehaviour
 
     public void AttemptStartGame()
     {
+        // validate player transactional balance before switching scenes
         if (currentCredits >= costPerPlay)
         {
-            // deduct the cost and save it to the global wallet!
             currentCredits -= costPerPlay;
-            PlayerPrefs.SetInt($"PlayerCredits_Slot{activeSlot}", currentCredits);
+            PlayerPrefs.SetInt(creditsPrefsKey, currentCredits);
             PlayerPrefs.Save();
             
-            // start the game
             PlayClickSound();
             SceneManager.LoadScene(gameSceneName);
         }
         else
         {
-            // not enough money
+            // fallback processing for broken/insufficient transaction attempts
             if (uiAudioSource && errorSound) uiAudioSource.PlayOneShot(errorSound);
             
             if (insufficientCreditsWarningText)
@@ -109,24 +118,13 @@ public class SpaceInvadersMenuController : MonoBehaviour
         }
     }
 
-    public void OpenScoreAdvanceTable()
-    {
-        mainPanel.SetActive(false);
-        scoreAdvancePanel.SetActive(true);
-    }
+    public void OpenScoreAdvanceTable() => TogglePanels(false, false, true);
 
-    public void OpenSettings()
-    {
-        mainPanel.SetActive(false);
-        settingsPanel.SetActive(true);
-    }
+    public void OpenSettings() => TogglePanels(false, true, false);
 
     public void ReturnToMainMenu()
     {
-        scoreAdvancePanel.SetActive(false);
-        settingsPanel.SetActive(false);
-        mainPanel.SetActive(true);
-        
+        TogglePanels(true, false, false);
         if (insufficientCreditsWarningText) insufficientCreditsWarningText.gameObject.SetActive(false);
         SaveAudioSettingsToDisk(); 
     }
@@ -137,17 +135,30 @@ public class SpaceInvadersMenuController : MonoBehaviour
         SceneManager.LoadScene(arcadeRoomSceneName);
     }
 
-    // audio settings (Recycled from Flappy)
+    private void TogglePanels(bool main, bool settings, bool scoreAdvance)
+    {
+        // modular utility handler designed to minimize boilerplate panel state toggles
+        if (mainPanel) mainPanel.SetActive(main);
+        if (settingsPanel) settingsPanel.SetActive(settings);
+        if (scoreAdvancePanel) scoreAdvancePanel.SetActive(scoreAdvance);
+    }
 
     private void LoadSettings()
     {
-        if (musicSlider) musicSlider.value = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
-        if (sfxSlider) sfxSlider.value = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
-        if (uiSlider) uiSlider.value = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f);
+        // acquire saved volume float records seamlessly or leverage original defaults
+        float targetMusic = PlayerPrefs.GetFloat(MusicVolKey, 0.75f);
+        float targetSfx = PlayerPrefs.GetFloat(SfxVolKey, 0.75f);
+        float targetUi = PlayerPrefs.GetFloat(UiVolKey, 0.75f);
 
-        SetMusicVolume(musicSlider ? musicSlider.value : 0.75f);
-        SetSFXVolume(sfxSlider ? sfxSlider.value : 0.75f);
-        SetUIVolume(uiSlider ? uiSlider.value : 0.75f);
+        // push saved values cleanly out onto current inspector ui structures
+        if (musicSlider) musicSlider.value = targetMusic;
+        if (sfxSlider) sfxSlider.value = targetSfx;
+        if (uiSlider) uiSlider.value = targetUi;
+
+        // bind volume configuration settings directly out onto the active system mixer channel profiles
+        SetMusicVolume(targetMusic);
+        SetSFXVolume(targetSfx);
+        SetUIVolume(targetUi);
     }
 
     public void SetMusicVolume(float val) => ApplyVolumeToMixer("MusicVol", val);
@@ -158,21 +169,23 @@ public class SpaceInvadersMenuController : MonoBehaviour
     {
         if (audioMixer == null) return;
         
-        if (sliderValue <= 0.0001f) audioMixer.SetFloat(parameterName, -80f); 
-        else audioMixer.SetFloat(parameterName, Mathf.Log10(sliderValue) * 20f);
+        // apply dynamic logarithmic conversions out onto matching targeted mixer parameter nodes
+        float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
+        audioMixer.SetFloat(parameterName, targetDb);
     }
 
     private void SaveAudioSettingsToDisk()
     {
-        if (musicSlider) PlayerPrefs.SetFloat("Setting_MusicVol", musicSlider.value);
-        if (sfxSlider) PlayerPrefs.SetFloat("Setting_SFXVol", sfxSlider.value);
-        if (uiSlider) PlayerPrefs.SetFloat("Setting_UIVol", uiSlider.value);
+        // verify references exist safely before executing registry update requests
+        if (musicSlider) PlayerPrefs.SetFloat(MusicVolKey, musicSlider.value);
+        if (sfxSlider) PlayerPrefs.SetFloat(SfxVolKey, sfxSlider.value);
+        if (uiSlider) PlayerPrefs.SetFloat(UiVolKey, uiSlider.value);
         PlayerPrefs.Save();
     }
 
-    // local audio feedback
     private void WireMenuAudio()
     {
+        // lazy initialize target menu execution source dependencies safely when needed
         if (uiAudioSource == null) 
         {
             uiAudioSource = gameObject.AddComponent<AudioSource>();
@@ -182,25 +195,12 @@ public class SpaceInvadersMenuController : MonoBehaviour
 
         if (uiMixerGroup != null) uiAudioSource.outputAudioMixerGroup = uiMixerGroup;
 
-        if (musicSlider)
-        {
-            musicSlider.onValueChanged.RemoveAllListeners(); 
-            musicSlider.onValueChanged.AddListener(SetMusicVolume);
-            musicSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
-        if (sfxSlider)
-        {
-            sfxSlider.onValueChanged.RemoveAllListeners();
-            sfxSlider.onValueChanged.AddListener(SetSFXVolume);
-            sfxSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
-        if (uiSlider)
-        {
-            uiSlider.onValueChanged.RemoveAllListeners();
-            uiSlider.onValueChanged.AddListener(SetUIVolume);
-            uiSlider.onValueChanged.AddListener((val) => PlaySliderTick());
-        }
+        // programmatically bind unified change event pipelines to user slider layouts
+        ConfigureSliderListener(musicSlider, SetMusicVolume);
+        ConfigureSliderListener(sfxSlider, SetSFXVolume);
+        ConfigureSliderListener(uiSlider, SetUIVolume);
 
+        // intercept global children array components to cleanly route shared click audio responses
         Button[] menuButtons = GetComponentsInChildren<Button>(true);
         foreach (Button btn in menuButtons)
         {
@@ -210,6 +210,15 @@ public class SpaceInvadersMenuController : MonoBehaviour
         }
     }
 
+    private void ConfigureSliderListener(Slider slider, UnityEngine.Events.UnityAction<float> volumeAction)
+    {
+        // universal engine routing tool configured to avoid boilerplate event binding overhead
+        if (slider == null) return;
+        slider.onValueChanged.RemoveAllListeners();
+        slider.onValueChanged.AddListener(volumeAction);
+        slider.onValueChanged.AddListener((val) => PlaySliderTick());
+    }
+
     public void PlayClickSound() 
     { 
         if (uiAudioSource != null && clickSound != null) uiAudioSource.PlayOneShot(clickSound); 
@@ -217,6 +226,7 @@ public class SpaceInvadersMenuController : MonoBehaviour
 
     public void PlaySliderTick()
     {
+        // basic time check constraint used to keep sequential slider sounds tracking cleanly
         if (Time.unscaledTime - lastSliderSoundTime >= sliderSoundCooldown)
         {
             if (uiAudioSource != null && sliderTickSound != null)
