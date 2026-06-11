@@ -6,14 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/ArcadeRoomGame/ArcadeRoom/Scenes/ArcadeRoom.unity
-    guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
-    path: Assets/ArcadeRoomGame/ArcadeRoom/Scripts/Debugging/Test.unity
-    guid: 4ce79928cdfca3e45b8a68f593484506
-  - enabled: 1
     path: Assets/ArcadeRoomGame/MainMenu/Scenes/MainMenu.unity
     guid: 7e03d0550def315469568803d9626ff5
+  - enabled: 1
+    path: Assets/ArcadeRoomGame/ArcadeRoom/Scenes/ArcadeRoom.unity
+    guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
     path: Assets/ArcadeRoomGame/ArcadeGames/Flappy/Scenes/FlappyMenu.unity
     guid: c829b25bf470e6c49b5196094150e34e

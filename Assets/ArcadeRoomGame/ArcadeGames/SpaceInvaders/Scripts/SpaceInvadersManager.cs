@@ -17,6 +17,8 @@ public class SpaceInvadersManager : MonoBehaviour
     [Header("Scoring & Economy")]
     public int currentScore = 0;
     public int pointsPerCredit = 50; 
+    [Tooltip("Must perfectly match the string your Arcade Room uses to save money.")]
+    public string baseCreditsKey = "PlayerCredits";
     
     [Header("UI - Mid Game")]
     public TextMeshProUGUI livesText;
@@ -41,7 +43,6 @@ public class SpaceInvadersManager : MonoBehaviour
     public Slider uiSlider;
     public TMP_Dropdown resolutionDropdown; 
 
-    // --- CHANGED: Audio sources split into three ---
     [Header("Audio Sources")]
     public AudioSource sfxAudioSource; 
     public AudioSource uiAudioSource; 
@@ -71,7 +72,10 @@ public class SpaceInvadersManager : MonoBehaviour
     private const string prefMusic = "Setting_MusicVol";
     private const string prefSfx = "Setting_SFXVol";
     private const string prefUi = "Setting_UIVol";
-    private const string prefResolution = "Setting_ResolutionIndex";
+    
+    // CHANGED: Saving absolute width/height instead of unreliable array indices
+    private const string prefResWidth = "Setting_ResWidth";
+    private const string prefResHeight = "Setting_ResHeight";
     private const string prefSlot = "Global_LastPlayedSlot";
 
     private Resolution[] resolutions; 
@@ -85,12 +89,10 @@ public class SpaceInvadersManager : MonoBehaviour
     private Vector3 preShakeCamPos;
     private bool isShaking = false;
 
-    // helper property to fetch the best available camera safely
     private Transform MainCam => cameraTransform != null ? cameraTransform : (Camera.main != null ? Camera.main.transform : null);
 
     private void Awake()
     {
-        // singleton pattern initialization
         if (Instance == null) 
         {
             Instance = this;
@@ -101,7 +103,6 @@ public class SpaceInvadersManager : MonoBehaviour
             return;
         }
 
-        // updated audio source safety check
         if (bgmAudioSource != null && (bgmAudioSource == sfxAudioSource || bgmAudioSource == uiAudioSource))
         {
             sfxAudioSource = null; 
@@ -111,26 +112,25 @@ public class SpaceInvadersManager : MonoBehaviour
 
     private void Start()
     {
-        // ensure time scale is normal on load
         Time.timeScale = 1f; 
         
-        // hide specific ui elements on start
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (waveText != null) waveText.gameObject.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
 
-        // set up pause menu defaults
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
 
         activeSlot = PlayerPrefs.GetInt(prefSlot, 1);
         UpdateUI();
 
+        // CHANGED: Explicitly apply resolution on scene load
+        ApplySavedResolution();
+
         WirePauseMenuAudio(); 
         InitializeResolutionDropdown(); 
         LoadAudioSettings(); 
 
-        // start background music
         if (bgmAudioSource != null && !bgmAudioSource.isPlaying)
         {
             bgmAudioSource.loop = true;
@@ -140,21 +140,85 @@ public class SpaceInvadersManager : MonoBehaviour
 
     private void Update()
     {
-        // listen for pause input
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
-            if (isPaused && pauseSettingsContainer.activeSelf)
-            {
-                ClosePauseSettings();
-            }
-            else
-            {
-                TogglePause();
-            }
+            if (isPaused && pauseSettingsContainer.activeSelf) ClosePauseSettings();
+            else TogglePause();
         }
     }
 
-    // pause & settings navigation
+    private string GetActiveCreditsKey()
+    {
+        return $"{baseCreditsKey}_Slot{activeSlot}";
+    }
+
+    // --- RESOLUTION LOGIC ---
+
+    private void ApplySavedResolution()
+    {
+        int w = PlayerPrefs.GetInt(prefResWidth, Screen.currentResolution.width);
+        int h = PlayerPrefs.GetInt(prefResHeight, Screen.currentResolution.height);
+        Screen.SetResolution(w, h, Screen.fullScreen);
+    }
+
+    private void InitializeResolutionDropdown()
+    {
+        if (resolutionDropdown == null) return;
+
+        Resolution[] rawResolutions = Screen.resolutions;
+        resolutionDropdown.ClearOptions();
+
+        List<string> options = new List<string>();
+        List<Resolution> uniqueResolutions = new List<Resolution>();
+        
+        int savedWidth = PlayerPrefs.GetInt(prefResWidth, Screen.currentResolution.width);
+        int savedHeight = PlayerPrefs.GetInt(prefResHeight, Screen.currentResolution.height);
+        int currentResIndex = 0;
+
+        for (int i = 0; i < rawResolutions.Length; i++)
+        {
+            string option = $"{rawResolutions[i].width} x {rawResolutions[i].height}";
+            if (!options.Contains(option))
+            {
+                options.Add(option);
+                uniqueResolutions.Add(rawResolutions[i]);
+
+                // Check if this unique resolution matches our saved width/height
+                if (rawResolutions[i].width == savedWidth && rawResolutions[i].height == savedHeight)
+                {
+                    currentResIndex = uniqueResolutions.Count - 1;
+                }
+            }
+        }
+
+        resolutions = uniqueResolutions.ToArray();
+        resolutionDropdown.AddOptions(options);
+        
+        // Set without notify to prevent it from triggering the event immediately on start
+        resolutionDropdown.SetValueWithoutNotify(Mathf.Clamp(currentResIndex, 0, resolutions.Length - 1));
+        resolutionDropdown.RefreshShownValue();
+
+        resolutionDropdown.onValueChanged.RemoveAllListeners();
+        resolutionDropdown.onValueChanged.AddListener(SetResolution);
+    }
+
+    public void SetResolution(int resolutionIndex)
+    {
+        if (resolutions == null || resolutionIndex >= resolutions.Length) return;
+
+        PlayButtonClickSound();
+        Resolution resolution = resolutions[resolutionIndex];
+        Screen.SetResolution(resolution.width, resolution.height, Screen.fullScreen);
+        
+        Canvas.ForceUpdateCanvases();
+
+        // Save explicit width and height
+        PlayerPrefs.SetInt(prefResWidth, resolution.width);
+        PlayerPrefs.SetInt(prefResHeight, resolution.height);
+        PlayerPrefs.Save();
+    }
+
+    // --- PAUSE & MENU LOGIC ---
 
     public void TogglePause()
     {
@@ -195,6 +259,7 @@ public class SpaceInvadersManager : MonoBehaviour
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
     }
+    
     private void SaveAudioSettingsToDisk()
     {
         if (musicSlider != null) PlayerPrefs.SetFloat(prefMusic, musicSlider.value);
@@ -202,6 +267,7 @@ public class SpaceInvadersManager : MonoBehaviour
         if (uiSlider != null) PlayerPrefs.SetFloat(prefUi, uiSlider.value);
         PlayerPrefs.Save();
     }
+
     public void ResumeGame()
     {
         PlayButtonClickSound();
@@ -216,59 +282,10 @@ public class SpaceInvadersManager : MonoBehaviour
         SceneManager.LoadScene(mainMenuSceneName);
     }
 
-    // video / resolution settings
-
-    private void InitializeResolutionDropdown()
-    {
-        if (resolutionDropdown == null) return;
-
-        resolutions = Screen.resolutions;
-        resolutionDropdown.ClearOptions();
-
-        List<string> options = new List<string>();
-        int currentResIndex = 0;
-        int savedResIndex = PlayerPrefs.GetInt(prefResolution, -1);
-
-        // populate dropdown with available screen resolutions
-        for (int i = 0; i < resolutions.Length; i++)
-        {
-            options.Add($"{resolutions[i].width} x {resolutions[i].height}");
-
-            if (savedResIndex == -1 && 
-                resolutions[i].width == Screen.currentResolution.width &&
-                resolutions[i].height == Screen.currentResolution.height)
-            {
-                currentResIndex = i;
-            }
-        }
-
-        if (savedResIndex != -1) currentResIndex = savedResIndex;
-
-        resolutionDropdown.AddOptions(options);
-        resolutionDropdown.value = currentResIndex;
-        resolutionDropdown.RefreshShownValue();
-
-        resolutionDropdown.onValueChanged.RemoveAllListeners();
-        resolutionDropdown.onValueChanged.AddListener(SetResolution);
-    }
-
-    public void SetResolution(int resolutionIndex)
-    {
-        PlayButtonClickSound();
-        Resolution resolution = resolutions[resolutionIndex];
-        Screen.SetResolution(resolution.width, resolution.height, Screen.fullScreen);
-        
-        PlayerPrefs.SetInt(prefResolution, resolutionIndex);
-        PlayerPrefs.Save();
-    }
-
-    // -----------------------------------------------------------
-    // audio settings & sound fx trigger methods
-    // -----------------------------------------------------------
+    // --- AUDIO LOGIC ---
 
     private void WirePauseMenuAudio()
     {
-        // attach listener events to ui sliders dynamically
         if (musicSlider != null)
         {
             musicSlider.onValueChanged.RemoveAllListeners(); 
@@ -319,13 +336,10 @@ public class SpaceInvadersManager : MonoBehaviour
     private void ApplyVolumeToMixer(string parameterName, float sliderValue)
     {
         if (audioMixer == null) return;
-        
-        // convert linear slider value to logarithmic decibels
         float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
         audioMixer.SetFloat(parameterName, targetDb);
     }
 
-    // --- CHANGED: UI Sounds route to uiAudioSource ---
     public void PlayButtonClickSound()
     {
         if (uiAudioSource != null && buttonClickSound != null)
@@ -334,10 +348,8 @@ public class SpaceInvadersManager : MonoBehaviour
         }
     }
 
-    // --- CHANGED: UI Sounds route to uiAudioSource ---
     private void PlaySliderTickSound()
     {
-        // limit the rate of slider tick sounds to prevent audio clipping
         if (Time.unscaledTime >= nextSliderSoundTime && uiAudioSource != null && sliderTickSound != null)
         {
             uiAudioSource.PlayOneShot(sliderTickSound);
@@ -345,18 +357,11 @@ public class SpaceInvadersManager : MonoBehaviour
         }
     }
 
-    // -----------------------------------------------------------
-    // space invaders core logics & cinematics
-    // -----------------------------------------------------------
+    // --- CORE GAMEPLAY LOGIC ---
 
-    // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
     public void AnnounceNewWave(int waveNumber)
     {
-        if (sfxAudioSource != null && newWaveSound != null)
-        {
-            sfxAudioSource.PlayOneShot(newWaveSound);
-        }
-
+        if (sfxAudioSource != null && newWaveSound != null) sfxAudioSource.PlayOneShot(newWaveSound);
         if (waveText != null)
         {
             waveText.text = $"WAVE {waveNumber}";
@@ -389,7 +394,6 @@ public class SpaceInvadersManager : MonoBehaviour
         if (shakeRoutine != null) StopCoroutine(shakeRoutine);
         shakeRoutine = StartCoroutine(CameraShakeRoutine());
 
-        // brief pause before executing life deduction
         yield return new WaitForSeconds(0.15f);
 
         playerLives--;
@@ -397,12 +401,7 @@ public class SpaceInvadersManager : MonoBehaviour
 
         if (playerLives <= 0)
         {
-            // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
-            if (sfxAudioSource != null && playerExplosionSound != null)
-            {
-                sfxAudioSource.PlayOneShot(playerExplosionSound);
-            }
-
+            if (sfxAudioSource != null && playerExplosionSound != null) sfxAudioSource.PlayOneShot(playerExplosionSound);
             TriggerGameOver();
             yield break; 
         }
@@ -416,7 +415,6 @@ public class SpaceInvadersManager : MonoBehaviour
         preShakeCamPos = MainCam.localPosition;
         float timePassed = 0f;
 
-        // rapidly shift the camera position
         while (timePassed < shakeDuration)
         {
             timePassed += Time.unscaledDeltaTime;
@@ -438,13 +436,11 @@ public class SpaceInvadersManager : MonoBehaviour
     {
         if (isGameOver) return;
         isGameOver = true;
-        
         StartCoroutine(SafeGameOverRoutine());
     }
 
     private IEnumerator SafeGameOverRoutine()
     {
-        // cleanly halt camera shaking
         if (shakeRoutine != null)
         {
             StopCoroutine(shakeRoutine);
@@ -459,27 +455,17 @@ public class SpaceInvadersManager : MonoBehaviour
 
         yield return new WaitForEndOfFrame();
 
-        if (bgmAudioSource != null)
-        {
-            bgmAudioSource.Stop();
-        }
+        if (bgmAudioSource != null) bgmAudioSource.Stop();
 
-        // freeze the game environment
         Time.timeScale = 0f; 
-        
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        // --- CHANGED: Gameplay sounds route to sfxAudioSource ---
-        if (sfxAudioSource != null && gameOverSound != null)
-        {
-            sfxAudioSource.PlayOneShot(gameOverSound);
-        }
+        if (sfxAudioSource != null && gameOverSound != null) sfxAudioSource.PlayOneShot(gameOverSound);
         
-        // calculate currency reward
         int creditsEarned = currentScore / pointsPerCredit;
-        string creditsKey = $"PlayerCredits_Slot{activeSlot}";
-        currentCredits = PlayerPrefs.GetInt(creditsKey, 500);
+        string creditsKey = GetActiveCreditsKey();
+        currentCredits = PlayerPrefs.GetInt(creditsKey, 0);
         currentCredits += creditsEarned;
         
         PlayerPrefs.SetInt(creditsKey, currentCredits);
@@ -491,16 +477,11 @@ public class SpaceInvadersManager : MonoBehaviour
             creditsEarnedText.text = $"Credits Earned: +{creditsEarned}\nNew Balance: {currentCredits}";
         }
         
-        // execute smooth fade in using unscaled delta time
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(true);
-            
             CanvasGroup goCanvasGroup = gameOverPanel.GetComponent<CanvasGroup>();
-            if (goCanvasGroup == null)
-            {
-                goCanvasGroup = gameOverPanel.AddComponent<CanvasGroup>();
-            }
+            if (goCanvasGroup == null) goCanvasGroup = gameOverPanel.AddComponent<CanvasGroup>();
             
             goCanvasGroup.alpha = 0f;
             float fadeDuration = 0.5f; 
@@ -519,8 +500,8 @@ public class SpaceInvadersManager : MonoBehaviour
     public void TryAgain()
     {
         PlayButtonClickSound();
-        string creditsKey = $"PlayerCredits_Slot{activeSlot}";
-        currentCredits = PlayerPrefs.GetInt(creditsKey, 500);
+        string creditsKey = GetActiveCreditsKey();
+        currentCredits = PlayerPrefs.GetInt(creditsKey, 0);
 
         if (currentCredits >= costPerPlay)
         {

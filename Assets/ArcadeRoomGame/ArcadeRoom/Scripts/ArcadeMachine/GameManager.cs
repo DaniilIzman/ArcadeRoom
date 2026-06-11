@@ -36,13 +36,22 @@ public class GameManager : MonoBehaviour
         if (forceStartingCreditsOnLoad)
         {
             currentCredits = startingCredits;
+            SaveCredits(); // FIX: Immediately commit forced credits to disk
         }
         else
         {
-            // load saved credits specifically for the active slot
-            currentCredits = PlayerPrefs.GetInt($"PlayerCredits_Slot{activeSlot}", startingCredits);
+            // FIX: Check if the key exists. If it doesn't, this is a brand new save!
+            if (!PlayerPrefs.HasKey($"PlayerCredits_Slot{activeSlot}"))
+            {
+                currentCredits = startingCredits;
+                SaveCredits(); // Immediately commit brand new player money to disk
+            }
+            else
+            {
+                // Load existing saved credits specifically for the active slot
+                currentCredits = PlayerPrefs.GetInt($"PlayerCredits_Slot{activeSlot}");
+            }
         }
-        
         
         UpdateCreditsUI();
     }

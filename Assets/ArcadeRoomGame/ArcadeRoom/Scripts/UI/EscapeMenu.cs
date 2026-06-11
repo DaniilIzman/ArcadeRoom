@@ -63,7 +63,7 @@ public class EscapeMenu : MonoBehaviour
         // automatic slider wiring
         if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener(SetMusicVolume);
         if (sfxVolumeSlider) sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
-        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener(SetUIVolume); // NEW
+        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener(SetUIVolume); 
         if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(SetSensitivity);
         if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(SetResolution);
 
@@ -111,7 +111,7 @@ public class EscapeMenu : MonoBehaviour
         {
             PlayerPrefs.SetFloat("Setting_MusicVol", musicVolumeSlider.value);
             PlayerPrefs.SetFloat("Setting_SFXVol", sfxVolumeSlider.value);
-            PlayerPrefs.SetFloat("Setting_UIVol", uiVolumeSlider.value); // NEW
+            PlayerPrefs.SetFloat("Setting_UIVol", uiVolumeSlider.value); 
             PlayerPrefs.SetFloat("Setting_MouseSensitivity", sensitivitySlider.value);
             PlayerPrefs.SetInt("Setting_Resolution", resolutionDropdown.value);
             
@@ -152,17 +152,29 @@ public class EscapeMenu : MonoBehaviour
     private void InitializeResolutionOptions()
     {
         if (resolutionDropdown == null) return;
-        availableResolutions = Screen.resolutions;
+        
+        Resolution[] rawResolutions = Screen.resolutions;
         resolutionDropdown.ClearOptions();
 
         List<string> options = new List<string>();
+        List<Resolution> uniqueResolutions = new List<Resolution>();
         int currentResolutionIndex = 0;
+
+        // Filter out duplicates caused by varying monitor refresh rates to preserve layout scaling
+        for (int i = 0; i < rawResolutions.Length; i++)
+        {
+            string option = rawResolutions[i].width + " x " + rawResolutions[i].height;
+            if (!options.Contains(option))
+            {
+                options.Add(option);
+                uniqueResolutions.Add(rawResolutions[i]);
+            }
+        }
+        
+        availableResolutions = uniqueResolutions.ToArray();
 
         for (int i = 0; i < availableResolutions.Length; i++)
         {
-            string option = availableResolutions[i].width + " x " + availableResolutions[i].height;
-            options.Add(option);
-
             if (availableResolutions[i].width == Screen.currentResolution.width &&
                 availableResolutions[i].height == Screen.currentResolution.height)
             {
@@ -172,7 +184,9 @@ public class EscapeMenu : MonoBehaviour
 
         resolutionDropdown.AddOptions(options);
         int savedRes = PlayerPrefs.GetInt("Setting_Resolution", currentResolutionIndex);
-        resolutionDropdown.value = savedRes;
+        
+        // Clamp layout index safely inside the unique elements boundaries
+        resolutionDropdown.value = Mathf.Clamp(savedRes, 0, availableResolutions.Length - 1);
         resolutionDropdown.RefreshShownValue();
     }
 
@@ -181,6 +195,9 @@ public class EscapeMenu : MonoBehaviour
         if (availableResolutions == null || resolutionIndex >= availableResolutions.Length) return;
         Resolution res = availableResolutions[resolutionIndex];
         Screen.SetResolution(res.width, res.height, Screen.fullScreenMode);
+        
+        // Force Canvas UI bounds to snap instantly to the new screen layout ratio
+        Canvas.ForceUpdateCanvases(); 
         MarkSettingsAsDirty();
     }
 
@@ -196,7 +213,6 @@ public class EscapeMenu : MonoBehaviour
         MarkSettingsAsDirty();
     }
 
-    // NEW
     public void SetUIVolume(float value)
     {
         ApplyVolumeToMixer(uiParamName, value);
@@ -220,17 +236,17 @@ public class EscapeMenu : MonoBehaviour
     {
         float musicVol = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
         float sfxVol = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
-        float uiVol = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f); // NEW
+        float uiVol = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f); 
         float sensitivity = PlayerPrefs.GetFloat("Setting_MouseSensitivity", 2.0f);
 
         if (musicVolumeSlider != null) musicVolumeSlider.value = musicVol;
         if (sfxVolumeSlider != null) sfxVolumeSlider.value = sfxVol;
-        if (uiVolumeSlider != null) uiVolumeSlider.value = uiVol; // NEW
+        if (uiVolumeSlider != null) uiVolumeSlider.value = uiVol; 
         if (sensitivitySlider != null) sensitivitySlider.value = sensitivity;
 
         ApplyVolumeToMixer(musicParamName, musicVol);
         ApplyVolumeToMixer(sfxParamName, sfxVol);
-        ApplyVolumeToMixer(uiParamName, uiVol); // NEW
+        ApplyVolumeToMixer(uiParamName, uiVol); 
         ApplySensitivityToCamera(sensitivity);
     }
 

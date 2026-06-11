@@ -85,12 +85,10 @@ public class ShopManager : MonoBehaviour
         {
             string jsonContent = File.ReadAllText(saveFilePath);
             saveData = JsonUtility.FromJson<ShopSaveData>(jsonContent);
-            Debug.Log($"Slot {activeSlot} Loaded successfully from: " + saveFilePath);
         }
         else
         {
             saveData = new ShopSaveData();
-            Debug.Log($"No save file found for Slot {activeSlot}. Creating new save data.");
         }
     }
 
@@ -224,6 +222,5 @@ public class ShopManager : MonoBehaviour
     {
         saveData.boughtItems.Clear();
         SaveGameData(); 
-        Debug.Log($"DEBUG: Shop JSON save file for Slot {activeSlot} has been wiped.");
     }
 }

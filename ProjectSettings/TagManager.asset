@@ -9,6 +9,7 @@ TagManager:
   - Bunker
   - EnemyLaser
   - Enemy
+  - ScoreZone
   layers:
   - Default
   - TransparentFX

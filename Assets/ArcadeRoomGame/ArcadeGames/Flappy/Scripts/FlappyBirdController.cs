@@ -1,6 +1,7 @@
 using UnityEngine;
+using UnityEngine.Audio; // Required to communicate with the Audio Mixer
 
-[RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(Rigidbody))] 
 [RequireComponent(typeof(AudioSource))]
 public class BirdControls : MonoBehaviour
 {
@@ -12,28 +13,37 @@ public class BirdControls : MonoBehaviour
     public float maxDownwardVelocity = -10f;
 
     [Header("Rotation Visuals")]
-    public float maxUpwardAngle = 30f;    // snaps to this angle when flapping up
-    public float maxDownwardAngle = -75f; // rotates down to this angle when diving
-    public float rotationSmoothness = 7f; // how fast the bird transitions between angles
+    public float maxUpwardAngle = 30f;    
+    public float maxDownwardAngle = -75f; 
+    public float rotationSmoothness = 7f; 
 
     [Header("Audio Settings")]
+    public AudioMixerGroup sfxMixerGroup; // The new slot for your SFX Mixer routing
     public AudioClip jumpSound;
+    public AudioClip deathSound; 
 
-    [Header("Destruction Feedback")]
-    public GameObject deathParticlePrefab; // assign your burst/feather particle system prefab here
+    [Header("Visual Feedback")]
+    public ParticleSystem jumpParticle;   
+    public ParticleSystem deathParticle; 
 
-    private Rigidbody2D structuralRigidbody;
+    private Rigidbody structuralRigidbody; 
     private AudioSource audioSource;
     private bool canJump = true;
 
     private void Awake()
     {
-        structuralRigidbody = GetComponent<Rigidbody2D>();
+        structuralRigidbody = GetComponent<Rigidbody>();
         audioSource = GetComponent<AudioSource>();
 
         if (audioSource != null)
         {
             audioSource.playOnAwake = false;
+            
+            // Force the Bird's audio to route through the SFX slider automatically
+            if (sfxMixerGroup != null)
+            {
+                audioSource.outputAudioMixerGroup = sfxMixerGroup;
+            }
         }
     }
 
@@ -52,8 +62,13 @@ public class BirdControls : MonoBehaviour
 
     private void ExecuteJump()
     {
-        structuralRigidbody.linearVelocity = new Vector2(structuralRigidbody.linearVelocity.x, jumpForce);
+        structuralRigidbody.linearVelocity = new Vector3(structuralRigidbody.linearVelocity.x, jumpForce, 0f);
         PlayJumpAudio();
+        
+        if (jumpParticle != null)
+        {
+            jumpParticle.Emit(10); // Hardcoded micro-burst count
+        }
     }
 
     private void PlayJumpAudio()
@@ -64,37 +79,68 @@ public class BirdControls : MonoBehaviour
         }
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
-        if (!canJump) return; // prevents double-triggering calculations if hitting multiple colliders simultaneously
+    #region Physics Collision Hooks (3D Only)
 
-        // trigger destruction visual feedback instantly at the impact point
-        if (deathParticlePrefab != null)
+    private void OnCollisionEnter(Collision collision)
+    {
+        ProcessDeath();
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("ScoreZone")) return; 
+        ProcessDeath();
+    }
+
+    private void ProcessDeath()
+    {
+        if (!canJump) return; 
+
+        // Play the explosion particle safely
+        if (deathParticle != null)
         {
-            Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
+            deathParticle.transform.SetParent(null); // Detach so it doesn't hide or move with the dead bird
+            deathParticle.Play();
+            Destroy(deathParticle.gameObject, 2f);   // Clean it up from the scene hierarchy after it finishes
+        }
+
+        if (audioSource != null && deathSound != null)
+        {
+            audioSource.PlayOneShot(deathSound);
         }
 
         DisableControls();
         FlappyGameManager.Instance.GameOver();
+
+        if (TryGetComponent<Collider>(out Collider col)) col.enabled = false;
+        structuralRigidbody.isKinematic = true; 
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        foreach (Renderer r in renderers)
+        {
+            r.enabled = false;
+        }
+
+        Destroy(gameObject, 2f);
     }
+
+    #endregion
 
     private void LimitVelocity()
     {
         float currentYVelocity = structuralRigidbody.linearVelocity.y;
         float clampedY = Mathf.Clamp(currentYVelocity, maxDownwardVelocity, maxUpwardVelocity);
         
-        structuralRigidbody.linearVelocity = new Vector2(structuralRigidbody.linearVelocity.x, clampedY);
+        structuralRigidbody.linearVelocity = new Vector3(structuralRigidbody.linearVelocity.x, clampedY, 0f);
     }
 
     private void ApplyAestheticRotation()
     {
-        // find out where our current velocity sits between falling flat-out and moving up flat-out
-        float velocityRatio = Mathf.InverseLerp(maxDownwardVelocity, maxUpwardVelocity, structuralRigidbody.linearVelocity.y);
+        if (!canJump) return; 
 
-        // map that ratio directly to our desired target rotation angles
+        float velocityRatio = Mathf.InverseLerp(maxDownwardVelocity, maxUpwardVelocity, structuralRigidbody.linearVelocity.y);
         float targetZAngle = Mathf.Lerp(maxDownwardAngle, maxUpwardAngle, velocityRatio);
 
-        // smoothly interpolate from our current rotation to that target rotation over time
         Quaternion currentRotation = transform.rotation;
         Quaternion targetRotation = Quaternion.Euler(0, 0, targetZAngle);
         

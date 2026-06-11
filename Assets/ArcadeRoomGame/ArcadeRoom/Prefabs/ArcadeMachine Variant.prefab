@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &5577550302484720629
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.1131
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.9507767
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.1131
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.748
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.007
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.12711
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -90
+      objectReference: {fileID: 0}
+    - target: {fileID: 2024166444749027703, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3305371308410010779, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: f3256685892c49a46adffb8ca47034d5, type: 2}
+    - target: {fileID: 3305371308410010779, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 38f9eb87d9ba77e4e844d18ed733f8c8, type: 2}
+    - target: {fileID: 3305371308410010779, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: 'm_Materials.Array.data[3]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 8bdb05629677a964db7879bd56360346, type: 2}
+    - target: {fileID: 6484136062345726564, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: sceneToLoad
+      value: SpaceInvadersMainMenu
+      objectReference: {fileID: 0}
+    - target: {fileID: 8094310580632080359, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+      propertyPath: m_Name
+      value: ArcadeMachine Variant
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects:
+    - {fileID: 98275115602133410, guid: b2b4294200f40ed478e018c9984675d7, type: 3}
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b2b4294200f40ed478e018c9984675d7, type: 3}

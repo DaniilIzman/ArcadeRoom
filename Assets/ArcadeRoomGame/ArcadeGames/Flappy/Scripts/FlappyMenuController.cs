@@ -118,7 +118,7 @@ public class FlappyMenuController : MonoBehaviour
         }
 
         FlappyLeaderboard board = JsonUtility.FromJson<FlappyLeaderboard>(json);
-        string displayText = "FLIGHT LOG\n<size=70%>Try | Date | Score</size>\n\n";
+        string displayText = "";
 
         for (int i = board.entries.Count - 1; i >= 0; i--)
         {

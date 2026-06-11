@@ -83,11 +83,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            DebugResetPlayer();
-        }
-
         isGrounded = controller.isGrounded;
         
         if (isPausedByMenu || isFrozenByArcade || isShopping)
@@ -137,29 +132,6 @@ public class PlayerMovement : MonoBehaviour
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
-    }
-
-private void DebugResetPlayer()
-    {
-        Debug.Log("DEBUG: Initiating Full World Reset...");
-
-        // wipe the shop JSON data
-        if (ShopManager.Instance != null)
-        {
-            ShopManager.Instance.ResetShopProgress();
-        }
-
-        // wipe the player's credits
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.ResetCredits();
-        }
-
-        // reload the active scene. 
-        // this instantly destroys all spawned items, resets NPC interaction states, 
-        // places the player back at the original spawn point, and rebuilds the Shop UI.
-        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-        SceneManager.LoadScene(currentSceneIndex);
     }
 
     #region Audio Logic

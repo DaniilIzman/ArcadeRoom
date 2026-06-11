@@ -54,6 +54,10 @@ public class MainMenuController : MonoBehaviour
     private bool unsavedChangesExist = false;
     private Resolution[] availableResolutions;
 
+    // Keys for absolute resolution saving
+    private const string prefResWidth = "Setting_ResWidth";
+    private const string prefResHeight = "Setting_ResHeight";
+
     private void Start()
     {
         Cursor.lockState = CursorLockMode.None;
@@ -70,6 +74,7 @@ public class MainMenuController : MonoBehaviour
 
         UpdateContinueButtonInteractivity();
 
+        ApplySavedResolution(); // Force resolution on start
         InitializeResolutionOptions();
         LoadAndApplySettings();
         ResetSettingsBackButtonText();
@@ -217,13 +222,13 @@ public class MainMenuController : MonoBehaviour
         string jsonPath = Application.persistentDataPath + $"/shopProgress_Slot{slotNumber}.json";
         if (System.IO.File.Exists(jsonPath))
         {
+            System.IO.File.Exists(jsonPath);
             System.IO.File.Delete(jsonPath);
         }
         
         PlayerPrefs.Save();
     }
 
-    // Now accepts the slot number to log exactly which file you are checking
     public void OpenSaveDirectory(int slotNumber)
     {
         string path = Application.persistentDataPath;
@@ -256,7 +261,8 @@ public class MainMenuController : MonoBehaviour
             PlayerPrefs.SetFloat("Setting_SFXVol", sfxVolumeSlider.value);
             PlayerPrefs.SetFloat("Setting_UIVol", uiVolumeSlider.value);
             PlayerPrefs.SetFloat("Setting_MouseSensitivity", sensitivitySlider.value);
-            PlayerPrefs.SetInt("Setting_Resolution", resolutionDropdown.value);
+            
+            // Resolution width/height is saved instantly in SetResolution(), so we don't need to save the index here anymore.
             
             PlayerPrefs.Save();
         }
@@ -290,6 +296,13 @@ public class MainMenuController : MonoBehaviour
 
     #region Resolution and Volume Handlers
 
+    private void ApplySavedResolution()
+    {
+        int w = PlayerPrefs.GetInt(prefResWidth, Screen.currentResolution.width);
+        int h = PlayerPrefs.GetInt(prefResHeight, Screen.currentResolution.height);
+        Screen.SetResolution(w, h, Screen.fullScreenMode);
+    }
+
     private void InitializeResolutionOptions()
     {
         if (resolutionDropdown == null) return;
@@ -297,6 +310,8 @@ public class MainMenuController : MonoBehaviour
         resolutionDropdown.ClearOptions();
 
         List<string> options = new List<string>();
+        int savedWidth = PlayerPrefs.GetInt(prefResWidth, Screen.currentResolution.width);
+        int savedHeight = PlayerPrefs.GetInt(prefResHeight, Screen.currentResolution.height);
         int currentResolutionIndex = 0;
 
         for (int i = 0; i < availableResolutions.Length; i++)
@@ -304,24 +319,32 @@ public class MainMenuController : MonoBehaviour
             string option = availableResolutions[i].width + " x " + availableResolutions[i].height;
             options.Add(option);
 
-            if (availableResolutions[i].width == Screen.currentResolution.width &&
-                availableResolutions[i].height == Screen.currentResolution.height)
+            // Find the index that perfectly matches our saved width and height
+            if (availableResolutions[i].width == savedWidth &&
+                availableResolutions[i].height == savedHeight)
             {
                 currentResolutionIndex = i;
             }
         }
 
         resolutionDropdown.AddOptions(options);
-        int savedRes = PlayerPrefs.GetInt("Setting_Resolution", currentResolutionIndex);
-        resolutionDropdown.value = savedRes;
+        
+        // Set without notify so we don't accidentally trigger the "unsaved changes" flag on start
+        resolutionDropdown.SetValueWithoutNotify(currentResolutionIndex);
         resolutionDropdown.RefreshShownValue();
     }
 
     public void SetResolution(int resolutionIndex)
     {
         if (availableResolutions == null || resolutionIndex >= availableResolutions.Length) return;
+        
         Resolution res = availableResolutions[resolutionIndex];
         Screen.SetResolution(res.width, res.height, Screen.fullScreenMode);
+        
+        // Save the explicit absolute size, avoiding the index bug
+        PlayerPrefs.SetInt(prefResWidth, res.width);
+        PlayerPrefs.SetInt(prefResHeight, res.height);
+        
         NotifySettingChanged();
     }
 
