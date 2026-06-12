@@ -5,52 +5,57 @@ using UnityEngine;
 public class EndlessPlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float laneDistance = 3f; // distance between the Left, Center, and Right lanes
-    public float laneChangeSpeed = 15f; // how snappy the snap to the next lane is
+    public float laneDistance = 3f; 
+    public float laneChangeSpeed = 15f; 
     public float jumpForce = 8f;
     public float gravity = 20f;
-    
+
     [Header("Slide Settings")]
     public float slideDuration = 1.0f;
+    private bool isSliding = false;
     private float originalHeight;
     private Vector3 originalCenter;
-    private bool isSliding = false;
+
+    [Header("Animation Settings")]
+    public Animator anim;
 
     private CharacterController controller;
-    private int currentLane = 1; // 0 = Left, 1 = Middle, 2 = Right
+    private int currentLane = 1; 
     private float verticalVelocity;
 
     private void Start()
     {
         controller = GetComponent<CharacterController>();
         
-        // Cache original hitbox sizes so we can restore them after sliding
+        // save the original collider dimensions so we can restore them after sliding
         originalHeight = controller.height;
         originalCenter = controller.center;
     }
 
     private void Update()
     {
-        // Stop processing movement if the game is over or paused
         if (EndlessRunnerManager.Instance != null && 
            (EndlessRunnerManager.Instance.isGameOver || EndlessRunnerManager.Instance.isPaused))
             return;
 
         HandleLaneInputs();
         
-        // Calculate the target X position based on the current lane
+        // send physics data to the animator parameters every frame
+        if (anim != null)
+        {
+            anim.SetBool("isGrounded", controller.isGrounded);
+            anim.SetFloat("verticalVelocity", verticalVelocity); // Tracks up/down speed
+        }
+
         Vector3 targetPosition = transform.position;
         targetPosition.x = (currentLane - 1) * laneDistance;
 
         Vector3 moveVector = Vector3.zero;
-
-        // X axis - Smoothly interpolate toward the target lane
         moveVector.x = (targetPosition.x - transform.position.x) * laneChangeSpeed;
 
-        // Y axis - Gravity, Jumping, and Sliding
         if (controller.isGrounded)
         {
-            verticalVelocity = -0.5f; // small downward force to ensure the controller registers as grounded
+            verticalVelocity = -0.5f; 
             
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.Space))
             {
@@ -63,19 +68,10 @@ public class EndlessPlayerController : MonoBehaviour
         }
         else
         {
-            // Apply gravity over time
             verticalVelocity -= gravity * Time.deltaTime;
-            
-            // Arcade Mechanic: Pressing down mid-air instantly slams player to the ground
-            if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
-            {
-                verticalVelocity = -jumpForce;
-            }
         }
 
         moveVector.y = verticalVelocity;
-        
-        // apply movement. Z is 0 because the world moves toward the player, the player stays at Z=0.
         controller.Move(moveVector * Time.deltaTime);
     }
 
@@ -93,33 +89,52 @@ public class EndlessPlayerController : MonoBehaviour
 
     private void Jump()
     {
-        if (isSliding) return; // Prevent jumping while actively sliding under a barrier
+        // cancel the slide immediately if the player decides to jump mid-slide
+        if (isSliding) StopSlide();
+
         verticalVelocity = jumpForce;
+
+        if (anim != null)
+        {
+            // forces the animation to snap back to frame 0, allowing rapid consecutive jumps
+            anim.Play("Jump", -1, 0f);
+        }
     }
 
     private void Slide()
     {
-        if (!isSliding)
-        {
-            StartCoroutine(SlideRoutine());
-        }
+        if (isSliding) return;
+        StartCoroutine(SlideRoutine());
     }
 
     private IEnumerator SlideRoutine()
     {
         isSliding = true;
         
-        // shrink the CharacterController height in half and lower its center
+        if (anim != null)
+        {
+            anim.SetTrigger("Slide");
+        }
+
+        // shrink the character collider to half its height and lower its center
         controller.height = originalHeight / 2f;
         controller.center = new Vector3(originalCenter.x, originalCenter.y / 2f, originalCenter.z);
 
-        // anim.SetTrigger("Slide");
-
+        // wait for the slide to finish
         yield return new WaitForSeconds(slideDuration);
 
-        // restore the original hitbox
+        // put the collider back to normal
+        StopSlide();
+    }
+
+    private void StopSlide()
+    {
+        StopAllCoroutines(); 
+        
+        // restore collider to full standing height
         controller.height = originalHeight;
         controller.center = originalCenter;
+        
         isSliding = false;
     }
 
@@ -135,7 +150,7 @@ public class EndlessPlayerController : MonoBehaviour
             if (EndlessRunnerManager.Instance != null)
             {
                 EndlessRunnerManager.Instance.PlayCoinPickupSound();
-                EndlessRunnerManager.Instance.AddDistance(10); // reward bonus points/distance for coins
+                EndlessRunnerManager.Instance.AddDistance(10); 
             }
             Destroy(other.gameObject);
         }

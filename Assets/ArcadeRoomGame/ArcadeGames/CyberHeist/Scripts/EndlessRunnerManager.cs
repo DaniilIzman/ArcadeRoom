@@ -142,7 +142,7 @@ public class EndlessRunnerManager : MonoBehaviour
         return $"{baseCreditsKey}_Slot{activeSlot}";
     }
 
-    // --- RESOLUTION LOGIC ---
+    // resolution logic
 
     private void ApplySavedResolution()
     {
