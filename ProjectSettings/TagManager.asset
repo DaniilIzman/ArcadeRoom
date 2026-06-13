@@ -10,6 +10,10 @@ TagManager:
   - EnemyLaser
   - Enemy
   - ScoreZone
+  - Coin
+  - SpeedBoost
+  - JumpBoots
+  - Obstacle
   layers:
   - Default
   - TransparentFX

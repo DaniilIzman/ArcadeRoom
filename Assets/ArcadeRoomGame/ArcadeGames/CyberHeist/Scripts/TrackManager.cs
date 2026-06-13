@@ -1,17 +1,18 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class TrackManager : MonoBehaviour
 {
+    public static TrackManager Instance { get; private set; }
+
     [Header("Track Setup")]
     public GameObject[] trackPrefabs;
     public float segmentLength = 30f;
     public int segmentsOnScreen = 5;
 
-    [Header("Your Platform Transform Alignment")]
-    [Tooltip("Matches your platform's X and Y coordinates exactly.")]
+    [Header("Platform Transform Alignment")]
     public Vector3 trackOffset = new Vector3(0f, -1f, 0f);
-    [Tooltip("The starting Z position of your very first platform piece.")]
     public float startingZ = 3.2f;
 
     [Header("Treadmill Speed")]
@@ -21,9 +22,22 @@ public class TrackManager : MonoBehaviour
 
     private List<GameObject> activeTracks = new List<GameObject>();
     private float distanceAccumulator = 0f;
+    private float initialSpeed;
+    
+    // speed boost variables
+    private float speedMultiplier = 1f;
+    private Coroutine speedBoostRoutine;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
 
     private void Start()
     {
+        initialSpeed = currentSpeed;
+        
         for (int i = 0; i < segmentsOnScreen; i++)
         {
             SpawnTrack(Random.Range(0, trackPrefabs.Length));
@@ -41,20 +55,32 @@ public class TrackManager : MonoBehaviour
             currentSpeed += acceleration * Time.deltaTime;
         }
 
-        // move the track pieces backward along the Z axis
+        float effectiveSpeed = currentSpeed * speedMultiplier;
+
         foreach (GameObject track in activeTracks)
         {
-            track.transform.position += Vector3.back * currentSpeed * Time.deltaTime;
+            track.transform.position += Vector3.back * effectiveSpeed * Time.deltaTime;
         }
 
-        // recycle the piece once it has fully cleared the player's view behind Z = 0
-        // factor in startingZ to ensure it doesn't vanish too early or too late
         if (activeTracks[0].transform.position.z < (startingZ - segmentLength))
         {
             RecycleTrack();
         }
 
-        CalculateDistance();
+        CalculateDistance(effectiveSpeed);
+    }
+
+    public void ApplySpeedBoost(float multiplier, float duration)
+    {
+        if (speedBoostRoutine != null) StopCoroutine(speedBoostRoutine);
+        speedBoostRoutine = StartCoroutine(SpeedBoostSequence(multiplier, duration));
+    }
+
+    private IEnumerator SpeedBoostSequence(float multiplier, float duration)
+    {
+        speedMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        speedMultiplier = 1f;
     }
 
     private void SpawnTrack(int trackIndex)
@@ -63,12 +89,10 @@ public class TrackManager : MonoBehaviour
 
         if (activeTracks.Count > 0)
         {
-            // chain directly off the end of the previous piece
             spawnPosition.z = activeTracks[activeTracks.Count - 1].transform.position.z + segmentLength;
         }
         else
         {
-            // this is the very first piece, start it exactly at your local Z coordinate
             spawnPosition.z = startingZ;
         }
 
@@ -86,16 +110,22 @@ public class TrackManager : MonoBehaviour
         SpawnTrack(Random.Range(0, trackPrefabs.Length));
     }
 
-    private void CalculateDistance()
+    private void CalculateDistance(float effectiveSpeed)
     {
         if (EndlessRunnerManager.Instance == null) return;
 
-        distanceAccumulator += currentSpeed * Time.deltaTime;
+        distanceAccumulator += effectiveSpeed * Time.deltaTime;
         
         if (distanceAccumulator >= 10f)
         {
             EndlessRunnerManager.Instance.AddDistance(1);
             distanceAccumulator -= 10f;
         }
+    }
+
+    public float GetAnimationSpeedMultiplier()
+    {
+        if (initialSpeed <= 0) return 1f;
+        return (currentSpeed * speedMultiplier) / initialSpeed;
     }
 }
