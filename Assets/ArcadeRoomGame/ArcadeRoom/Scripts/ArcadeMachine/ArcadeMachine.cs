@@ -12,9 +12,14 @@ public class ArcadeMachine : MonoBehaviour
     [Header("Scene Routing")]
     public string sceneToLoad; 
 
+    [Header("Economy & Unlocks")]
+    public bool requiresUnlock = true;
+    public int unlockCost = 150;
+    public AudioClip unlockSound;
+
     [Header("Audio Settings")]
     public AudioClip promptSound;
-    public AudioClip cabinetBootSound; // Renamed from insertCoinSound for clarity
+    public AudioClip cabinetBootSound; 
 
     [Header("UI Transitions")]
     public Image fadeOverlay;
@@ -22,14 +27,21 @@ public class ArcadeMachine : MonoBehaviour
     private bool isPlayerInside = false;
     private bool isTransitioning = false; 
     private bool promptActive = false; 
+    private bool isUnlocked = false;
     
     private PlayerMovement playerInZone = null;
     private AudioSource audioSource;
+    private Coroutine warningRoutine;
 
     private void Awake()
     {
         audioSource = GetComponent<AudioSource>();
-        audioSource.playOnAwake = false; 
+        if (audioSource != null) audioSource.playOnAwake = false; 
+    }
+
+    private void Start()
+    {
+        isUnlocked = CheckIfUnlocked();
     }
 
     private void Update()
@@ -38,11 +50,18 @@ public class ArcadeMachine : MonoBehaviour
         {
             if (playerInZone.IsGrounded)
             {
+                isUnlocked = CheckIfUnlocked();
+
                 if (!promptActive)
                 {
-                    // Cleaned up UI Prompt: No longer displays a credit cost string
                     if (UIManager.Instance != null)
-                        UIManager.Instance.ShowPrompt("Press E to play " + gameName);
+                    {
+                        string promptText = isUnlocked 
+                            ? $"Press E to play {gameName}" 
+                            : $"Press E to unlock {gameName} ({unlockCost} Credits)";
+                        
+                        UIManager.Instance.ShowPrompt(promptText);
+                    }
                     promptActive = true;
 
                     if (audioSource != null && promptSound != null)
@@ -51,18 +70,80 @@ public class ArcadeMachine : MonoBehaviour
 
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    BootArcadeCabinet();
+                    if (isUnlocked)
+                    {
+                        BootArcadeCabinet();
+                    }
+                    else
+                    {
+                        AttemptUnlock();
+                    }
                 }
             }
             else
             {
                 if (promptActive)
                 {
-                    if (UIManager.Instance != null) UIManager.Instance.HidePrompt();
-                    promptActive = false;
+                    ClearPromptState();
                 }
             }
         }
+    }
+
+    private string GetMasterUnlockKey()
+    {
+        int activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        return $"ArcadeUnlocks_Slot{activeSlot}";
+    }
+
+    private bool CheckIfUnlocked()
+    {
+        if (!requiresUnlock) return true;
+        
+        string unlockedData = PlayerPrefs.GetString(GetMasterUnlockKey(), "");
+        return unlockedData.Contains($"[{gameName}]");
+    }
+
+    private void SaveUnlock()
+    {
+        string key = GetMasterUnlockKey();
+        string unlockedData = PlayerPrefs.GetString(key, "");
+        
+        if (!unlockedData.Contains($"[{gameName}]"))
+        {
+            // Append this game to the master list
+            PlayerPrefs.SetString(key, unlockedData + $"[{gameName}],");
+            PlayerPrefs.Save();
+        }
+    }
+
+    private void AttemptUnlock()
+    {
+        if (GameManager.Instance != null && GameManager.Instance.TrySpendCredits(unlockCost))
+        {
+            isUnlocked = true;
+            SaveUnlock(); // Save to the master list
+
+            if (audioSource != null && unlockSound != null)
+                audioSource.PlayOneShot(unlockSound);
+
+            BootArcadeCabinet();
+        }
+        else
+        {
+            if (warningRoutine != null) StopCoroutine(warningRoutine);
+            warningRoutine = StartCoroutine(FlashWarningSequence());
+        }
+    }
+
+    private IEnumerator FlashWarningSequence()
+    {
+        if (UIManager.Instance != null) 
+            UIManager.Instance.ShowPrompt("<color=red>INSUFFICIENT CREDITS!</color>");
+        
+        yield return new WaitForSecondsRealtime(1.5f);
+        
+        promptActive = false; 
     }
 
     private void BootArcadeCabinet()
@@ -78,7 +159,6 @@ public class ArcadeMachine : MonoBehaviour
         isTransitioning = true;
         promptActive = false; 
 
-        // prevent UI overlap fix
         if (EscapeMenu.Instance != null) EscapeMenu.Instance.ForceCloseAndLock();
 
         PlayerCamera cameraLook = null;
@@ -96,7 +176,6 @@ public class ArcadeMachine : MonoBehaviour
             PlayerCamera.restorePitch = true;
         }
 
-        // arcade freeze target fix
         if (playerInZone != null) playerInZone.isFrozenByArcade = true;
         if (cameraLook != null) cameraLook.isFrozenByArcade = true;
 
@@ -115,7 +194,7 @@ public class ArcadeMachine : MonoBehaviour
 
             while (elapsedTime < loadDelay)
             {
-                elapsedTime += Time.unscaledDeltaTime; // use unscaled to ignore menu pauses
+                elapsedTime += Time.unscaledDeltaTime; 
                 fadeColor.a = Mathf.Clamp01(elapsedTime / loadDelay);
                 fadeOverlay.color = fadeColor;
                 yield return null; 
@@ -146,6 +225,13 @@ public class ArcadeMachine : MonoBehaviour
         }
     }
 
+    private void ClearPromptState()
+    {
+        if (warningRoutine != null) StopCoroutine(warningRoutine);
+        if (UIManager.Instance != null) UIManager.Instance.HidePrompt();
+        promptActive = false;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player") && !isTransitioning)
@@ -162,12 +248,23 @@ public class ArcadeMachine : MonoBehaviour
             isPlayerInside = false;
             playerInZone = null;
             
-            if (promptActive)
+            if (promptActive || warningRoutine != null)
             {
-                if (UIManager.Instance != null && !isTransitioning)
-                    UIManager.Instance.HidePrompt();
-                promptActive = false;
+                ClearPromptState();
             }
         }
+    }
+
+    [ContextMenu("Debug Lock Machine Data")]
+    public void DebugLockMachine()
+    {
+        // Wipes the master key for this slot
+        PlayerPrefs.DeleteKey(GetMasterUnlockKey());
+        PlayerPrefs.Save();
+        isUnlocked = !requiresUnlock;
+        promptActive = false;
+        
+        int activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
+        Debug.Log($"All machines wiped for Slot {activeSlot}.");
     }
 }

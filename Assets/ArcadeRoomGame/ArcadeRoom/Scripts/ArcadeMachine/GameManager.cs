@@ -16,8 +16,9 @@ public class GameManager : MonoBehaviour
     [Tooltip("Drag your Credits Text UI element here.")]
     public TextMeshProUGUI creditsText; 
 
-    private int activeSlot; // tracks which slot we are currently playing
+    private int activeSlot;
 
+    // 1 - Singleton setup
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -28,27 +29,25 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    // 2 - Load active slot and credits for that slot
     private void Start()
     {
-        // fetch the slot chosen in the Main Menu (defaults to 1 if testing directly in the scene)
         activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
 
         if (forceStartingCreditsOnLoad)
         {
             currentCredits = startingCredits;
-            SaveCredits(); // FIX: Immediately commit forced credits to disk
+            SaveCredits();
         }
         else
         {
-            // FIX: Check if the key exists. If it doesn't, this is a brand new save!
             if (!PlayerPrefs.HasKey($"PlayerCredits_Slot{activeSlot}"))
             {
                 currentCredits = startingCredits;
-                SaveCredits(); // Immediately commit brand new player money to disk
+                SaveCredits();
             }
             else
             {
-                // Load existing saved credits specifically for the active slot
                 currentCredits = PlayerPrefs.GetInt($"PlayerCredits_Slot{activeSlot}");
             }
         }
@@ -56,6 +55,7 @@ public class GameManager : MonoBehaviour
         UpdateCreditsUI();
     }
 
+    // 3 - Credit transactions
     public bool TrySpendCredits(int amount)
     {
         if (currentCredits >= amount)
@@ -74,18 +74,21 @@ public class GameManager : MonoBehaviour
         Debug.Log("DEBUG: Added " + amount + " credits. New total: " + currentCredits);
     }
 
+    // 4 - Reset (new game / debug)
     public void ResetCredits()
     {
         currentCredits = startingCredits;
         
-        // delete the save key entirely to ensure a true factory reset for this slot
         PlayerPrefs.DeleteKey($"PlayerCredits_Slot{activeSlot}");
+        PlayerPrefs.DeleteKey($"ArcadeUnlocks_Slot{activeSlot}");
+        
         PlayerPrefs.Save();
         
         UpdateCreditsUI();
         Debug.Log($"DEBUG: GameManager credits for Slot {activeSlot} have been reset to " + startingCredits);
     }
 
+    // 5 - Persistence helpers
     private void SaveCredits()
     {
         PlayerPrefs.SetInt($"PlayerCredits_Slot{activeSlot}", currentCredits);
@@ -101,12 +104,14 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // 6 - Editor / debug tools
     [ContextMenu("Wipe Active Slot Save Data")]
     public void EditorWipeSave()
     {
-        // editor tool will wipe whichever slot is currently considered active
         int editorActiveSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
         PlayerPrefs.DeleteKey($"PlayerCredits_Slot{editorActiveSlot}");
+        PlayerPrefs.DeleteKey($"ArcadeUnlocks_Slot{editorActiveSlot}");
+        
         PlayerPrefs.Save();
         Debug.Log($"Save wiped for Slot {editorActiveSlot}! Uncheck 'forceStartingCreditsOnLoad' to test a fresh install.");
     }

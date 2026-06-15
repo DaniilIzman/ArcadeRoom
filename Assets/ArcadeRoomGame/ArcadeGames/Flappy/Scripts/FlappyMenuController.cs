@@ -6,18 +6,9 @@ using TMPro;
 using System.Collections.Generic;
 
 [System.Serializable]
-public class FlappyScoreEntry
-{
-    public int attemptNumber;
-    public string date;
-    public int score;
-}
-
+public class FlappyScoreEntry   { public int attemptNumber; public string date; public int score; }
 [System.Serializable]
-public class FlappyLeaderboard
-{
-    public List<FlappyScoreEntry> entries = new List<FlappyScoreEntry>();
-}
+public class FlappyLeaderboard  { public List<FlappyScoreEntry> entries = new List<FlappyScoreEntry>(); }
 
 public class FlappyMenuController : MonoBehaviour
 {
@@ -29,41 +20,35 @@ public class FlappyMenuController : MonoBehaviour
     [Header("Personal Best UI")]
     public TextMeshProUGUI leaderboardText;
 
-    [Header("Audio Settings & Routing")]
-    public AudioMixer audioMixer;
-    public AudioMixerGroup uiMixerGroup; 
+    [Header("Audio Settings")]
+    public AudioMixerGroup uiMixerGroup; // routes local UI AudioSource only
     public Slider musicSlider;
     public Slider sfxSlider;
-    public Slider uiSlider; 
+    public Slider uiSlider;
 
     [Header("Scene Routing")]
-    public string gameSceneName = "FlappyLevel";
-    public string arcadeRoomSceneName = "ArcadeRoom"; 
+    public string gameSceneName       = "FlappyLevel";
+    public string arcadeRoomSceneName = "ArcadeRoom";
 
     [Header("Audio Feedback - Local")]
     public AudioSource uiAudioSource;
-    public AudioClip clickSound;
-    public AudioClip sliderTickSound;
+    public AudioClip   clickSound;
+    public AudioClip   sliderTickSound;
 
-    private const string MusicVolKey = "Setting_MusicVol";
-    private const string SfxVolKey = "Setting_SFXVol";
-    private const string UiVolKey = "Setting_UIVol";
     private const string SlotKey = "Global_LastPlayedSlot";
-
     private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime;
-    private int activeSlot;
+    private int   activeSlot;
 
     private void Start()
     {
-        Cursor.visible = true;
+        Cursor.visible   = true;
         Cursor.lockState = CursorLockMode.None;
-
         activeSlot = PlayerPrefs.GetInt(SlotKey, 1);
 
         ToggleMenuPanels(true, false, false);
-        WireMenuAudio(); 
-        LoadSettings();  
+        WireMenuAudio();
+        LoadSliders();
     }
 
     private void Update()
@@ -73,63 +58,40 @@ public class FlappyMenuController : MonoBehaviour
             if (settingsPanel.activeSelf || personalBestPanel.activeSelf)
             {
                 ReturnToMainMenu();
-                PlayClickSound(); 
+                PlayClickSound();
             }
         }
     }
 
-    public void StartGame() => SceneManager.LoadScene(gameSceneName);
-
-    public void OpenPersonalBest()
-    {
-        ToggleMenuPanels(false, true, false);
-        LoadAndDisplayLeaderboard();
-    }
-
+    public void StartGame()    => SceneManager.LoadScene(gameSceneName);
     public void OpenSettings() => ToggleMenuPanels(false, false, true);
 
-    public void ReturnToMainMenu()
-    {
-        ToggleMenuPanels(true, false, false);
-        SaveAudioSettingsToDisk(); 
-    }
+    public void OpenPersonalBest() { ToggleMenuPanels(false, true, false); LoadAndDisplayLeaderboard(); }
 
-    public void LeaveArcadeMachine()
-    {
-        SaveAudioSettingsToDisk(); 
-        SceneManager.LoadScene(arcadeRoomSceneName);
-    }
+    public void ReturnToMainMenu() { SettingsManager.Instance?.SaveAll(); ToggleMenuPanels(true, false, false); }
+
+    public void LeaveArcadeMachine() { SettingsManager.Instance?.SaveAll(); SceneManager.LoadScene(arcadeRoomSceneName); }
 
     private void ToggleMenuPanels(bool main, bool pb, bool settings)
     {
-        if (mainPanel) mainPanel.SetActive(main);
+        if (mainPanel)         mainPanel.SetActive(main);
         if (personalBestPanel) personalBestPanel.SetActive(pb);
-        if (settingsPanel) settingsPanel.SetActive(settings);
+        if (settingsPanel)     settingsPanel.SetActive(settings);
     }
 
     private void LoadAndDisplayLeaderboard()
     {
         string json = PlayerPrefs.GetString($"FlappyHistory_Slot{activeSlot}", "");
-
-        if (string.IsNullOrEmpty(json))
-        {
-            if (leaderboardText) leaderboardText.text = "NO FLIGHT DATA FOUND.\n\nINSERT COIN TO PLAY!";
-            return;
-        }
+        if (string.IsNullOrEmpty(json)) { if (leaderboardText) leaderboardText.text = "NO FLIGHT DATA FOUND.\n\nINSERT COIN TO PLAY!"; return; }
 
         FlappyLeaderboard board = JsonUtility.FromJson<FlappyLeaderboard>(json);
-        string displayText = "";
-
+        string display = "";
         for (int i = board.entries.Count - 1; i >= 0; i--)
         {
-            FlappyScoreEntry entry = board.entries[i];
-            displayText += $"#{entry.attemptNumber} - {entry.date} - <color=#FFD700>{entry.score} PTS</color>\n";
+            var e = board.entries[i];
+            display += $"#{e.attemptNumber} - {e.date} - <color=#FFD700>{e.score} PTS</color>\n";
         }
-
-        if (leaderboardText != null)
-        {
-            leaderboardText.text = displayText;
-        }
+        if (leaderboardText != null) leaderboardText.text = display;
     }
 
     public void ClearFlightLog()
@@ -139,61 +101,30 @@ public class FlappyMenuController : MonoBehaviour
         LoadAndDisplayLeaderboard();
     }
 
-    private void LoadSettings()
+    private void LoadSliders()
     {
-        float targetMusic = PlayerPrefs.GetFloat(MusicVolKey, 0.75f);
-        float targetSfx = PlayerPrefs.GetFloat(SfxVolKey, 0.75f);
-        float targetUi = PlayerPrefs.GetFloat(UiVolKey, 0.75f);
-
-        if (musicSlider) musicSlider.value = targetMusic;
-        if (sfxSlider) sfxSlider.value = targetSfx;
-        if (uiSlider) uiSlider.value = targetUi;
-
-        SetMusicVolume(targetMusic);
-        SetSFXVolume(targetSfx);
-        SetUIVolume(targetUi);
-    }
-
-    public void SetMusicVolume(float val) => ApplyVolumeToMixer("MusicVol", val);
-    public void SetSFXVolume(float val) => ApplyVolumeToMixer("SFXVol", val);
-    public void SetUIVolume(float val) => ApplyVolumeToMixer("UIVol", val);
-
-    private void ApplyVolumeToMixer(string parameterName, float sliderValue)
-    {
-        if (audioMixer == null) return;
-        float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
-        audioMixer.SetFloat(parameterName, targetDb);
-    }
-
-    private void SaveAudioSettingsToDisk()
-    {
-        if (musicSlider) PlayerPrefs.SetFloat(MusicVolKey, musicSlider.value);
-        if (sfxSlider) PlayerPrefs.SetFloat(SfxVolKey, sfxSlider.value);
-        if (uiSlider) PlayerPrefs.SetFloat(UiVolKey, uiSlider.value);
-        PlayerPrefs.Save();
+        if (!SettingsManager.Instance) return;
+        if (musicSlider) musicSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedMusicVol);
+        if (sfxSlider)   sfxSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedSFXVol);
+        if (uiSlider)    uiSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedUIVol);
     }
 
     private void WireMenuAudio()
     {
-        if (uiAudioSource == null) 
+        if (uiAudioSource == null)
         {
             uiAudioSource = gameObject.AddComponent<AudioSource>();
-            uiAudioSource.playOnAwake = false;
-            uiAudioSource.ignoreListenerPause = true; 
+            uiAudioSource.playOnAwake        = false;
+            uiAudioSource.ignoreListenerPause = true;
         }
-
         if (uiMixerGroup != null) uiAudioSource.outputAudioMixerGroup = uiMixerGroup;
 
-        ConfigureMenuSlider(musicSlider, SetMusicVolume);
-        ConfigureMenuSlider(sfxSlider, SetSFXVolume);
-        ConfigureMenuSlider(uiSlider, SetUIVolume);
+        ConfigureMenuSlider(musicSlider, v => SettingsManager.Instance?.SetMusicVolume(v));
+        ConfigureMenuSlider(sfxSlider,   v => SettingsManager.Instance?.SetSFXVolume(v));
+        ConfigureMenuSlider(uiSlider,    v => SettingsManager.Instance?.SetUIVolume(v));
 
-        Button[] menuButtons = GetComponentsInChildren<Button>(true);
-        foreach (Button btn in menuButtons)
-        {
-            btn.onClick.RemoveAllListeners(); 
-            btn.onClick.AddListener(PlayClickSound);
-        }
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        foreach (Button btn in buttons) { btn.onClick.RemoveAllListeners(); btn.onClick.AddListener(PlayClickSound); }
     }
 
     private void ConfigureMenuSlider(Slider slider, UnityEngine.Events.UnityAction<float> action)
@@ -201,23 +132,16 @@ public class FlappyMenuController : MonoBehaviour
         if (slider == null) return;
         slider.onValueChanged.RemoveAllListeners();
         slider.onValueChanged.AddListener(action);
-        slider.onValueChanged.AddListener((val) => PlaySliderTick());
+        slider.onValueChanged.AddListener(_ => PlaySliderTick());
     }
 
-    public void PlayClickSound() 
-    { 
-        if (uiAudioSource != null && clickSound != null) uiAudioSource.PlayOneShot(clickSound); 
-    }
+    public void PlayClickSound() { if (uiAudioSource && clickSound) uiAudioSource.PlayOneShot(clickSound); }
 
     public void PlaySliderTick()
     {
         if (Time.unscaledTime - lastSliderSoundTime >= sliderSoundCooldown)
         {
-            if (uiAudioSource != null && sliderTickSound != null)
-            {
-                uiAudioSource.PlayOneShot(sliderTickSound);
-                lastSliderSoundTime = Time.unscaledTime;
-            }
+            if (uiAudioSource && sliderTickSound) { uiAudioSource.PlayOneShot(sliderTickSound); lastSliderSoundTime = Time.unscaledTime; }
         }
     }
 }

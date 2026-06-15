@@ -7,6 +7,8 @@ public class TrackManager : MonoBehaviour
     public static TrackManager Instance { get; private set; }
 
     [Header("Track Setup")]
+    [Tooltip("Drag your obstacle-free starting track here")]
+    public GameObject starterTrackPrefab;
     public GameObject[] trackPrefabs;
     public float segmentLength = 30f;
     public int segmentsOnScreen = 5;
@@ -38,7 +40,13 @@ public class TrackManager : MonoBehaviour
     {
         initialSpeed = currentSpeed;
         
-        for (int i = 0; i < segmentsOnScreen; i++)
+        if (starterTrackPrefab != null)
+        {
+            SpawnSpecificTrack(starterTrackPrefab);
+        }
+        
+        int segmentsToSpawn = (starterTrackPrefab != null) ? segmentsOnScreen - 1 : segmentsOnScreen;
+        for (int i = 0; i < segmentsToSpawn; i++)
         {
             SpawnTrack(Random.Range(0, trackPrefabs.Length));
         }
@@ -83,7 +91,7 @@ public class TrackManager : MonoBehaviour
         speedMultiplier = 1f;
     }
 
-    private void SpawnTrack(int trackIndex)
+    private void SpawnSpecificTrack(GameObject prefabToSpawn)
     {
         Vector3 spawnPosition = trackOffset;
 
@@ -96,9 +104,14 @@ public class TrackManager : MonoBehaviour
             spawnPosition.z = startingZ;
         }
 
-        GameObject newTrack = Instantiate(trackPrefabs[trackIndex], spawnPosition, Quaternion.identity);
+        GameObject newTrack = Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity);
         newTrack.transform.SetParent(transform); 
         activeTracks.Add(newTrack);
+    }
+
+    private void SpawnTrack(int trackIndex)
+    {
+        SpawnSpecificTrack(trackPrefabs[trackIndex]);
     }
 
     private void RecycleTrack()

@@ -1,9 +1,7 @@
 using UnityEngine;
-using UnityEngine.Audio;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
-using UnityEngine.SceneManagement;
-using System.Collections.Generic;
 
 public class FlappyGameManager : MonoBehaviour
 {
@@ -13,52 +11,43 @@ public class FlappyGameManager : MonoBehaviour
     public TextMeshProUGUI scoreText;
 
     [Header("Game Over UI")]
-    public GameObject gameOverPanel;
+    public GameObject      gameOverPanel;
     public TextMeshProUGUI finalScoreText;
     public TextMeshProUGUI creditsEarnedText;
 
     [Header("Pause Menu UI (Escape)")]
-    public GameObject pausePanel; 
-    public GameObject pauseMenuContainer; 
-    public GameObject pauseSettingsContainer; 
+    public GameObject pausePanel;
+    public GameObject pauseMenuContainer;
+    public GameObject pauseSettingsContainer;
     public bool isPaused { get; private set; } = false;
 
     [Header("Pause Menu Settings")]
-    public AudioMixer audioMixer;
-    public Slider musicSlider;
-    public Slider sfxSlider;
-    public Slider uiSlider;
-    public TMP_Dropdown resolutionDropdown; 
-    private Resolution[] resolutions;       
+    public Slider       musicSlider;
+    public Slider       sfxSlider;
+    public Slider       uiSlider;
+    public TMP_Dropdown resolutionDropdown;
 
     [Header("Economy Settings")]
     public int pipesPerCredit = 3;
 
     [Header("Audio Sources")]
-    public AudioSource musicSource; 
-    public AudioSource audioSource; // used for gameplay SFX (Score, Crash)
-    public AudioSource uiSource;    // dedicated UI Audio Source
+    public AudioSource musicSource;
+    public AudioSource audioSource;
+    public AudioSource uiSource;
 
     [Header("Gameplay Audio Clips")]
     public AudioClip scoreSound;
-    public AudioClip gameOverSound; 
+    public AudioClip gameOverSound;
 
     [Header("UI Audio Clips")]
-    public AudioClip clickSound;    // sound played when clicking menu buttons
-    public AudioClip sliderSound;   // short tick sound played when dragging sliders
+    public AudioClip clickSound;
+    public AudioClip sliderSound;
 
-    // shared uniform key configurations to prevent lookup typos across files
-    private const string MusicVolKey = "Setting_MusicVol";
-    private const string SfxVolKey = "Setting_SFXVol";
-    private const string UiVolKey = "Setting_UIVol";
-    private const string ResIndexKey = "Setting_ResolutionIndex";
     private const string SlotKey = "Global_LastPlayedSlot";
 
-    public int currentScore { get; private set; } = 0;
-    public bool isGameOver { get; private set; } = false;
+    public int  currentScore { get; private set; } = 0;
+    public bool isGameOver   { get; private set; } = false;
 
-    // cooldown-based slider sound guard (matches FlappyMenuController pattern)
-    // negative sentinel means "not ready yet" — armed at the end of Start()
     private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime = -1f;
 
@@ -70,19 +59,17 @@ public class FlappyGameManager : MonoBehaviour
 
     private void Start()
     {
-        Time.timeScale = 1f; 
-        
+        Time.timeScale = 1f;
         if (gameOverPanel) gameOverPanel.SetActive(false);
-        if (pausePanel) pausePanel.SetActive(false);
+        if (pausePanel)    pausePanel.SetActive(false);
         TogglePauseUIContainers(true, false);
-        
-        UpdateScoreUI();
-        WirePauseMenuAudio(); 
-        InitializeResolutionDropdown(); 
-        LoadAudioSettings(); 
 
-        // arm the cooldown timer — any slider callbacks fired before this point are ignored
-        lastSliderSoundTime = Time.unscaledTime;
+        UpdateScoreUI();
+        WirePauseMenuAudio();
+        InitResDropdown();
+        LoadSliders();
+
+        lastSliderSoundTime = Time.unscaledTime; // arm cooldown after init
     }
 
     private void Update()
@@ -90,133 +77,65 @@ public class FlappyGameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
             if (isPaused && pauseSettingsContainer && pauseSettingsContainer.activeSelf)
-            {
-                PlayClickAudio();
-                ClosePauseSettings();
-            }
-            else
-            {
-                TogglePause();
-            }
+            { PlayClickAudio(); ClosePauseSettings(); }
+            else TogglePause();
         }
     }
+
+    // ── Pause ─────────────────────────────────────────────────────────────────
 
     public void TogglePause()
     {
         PlayClickAudio();
         isPaused = !isPaused;
         Time.timeScale = isPaused ? 0f : 1f;
-        
         if (pausePanel) pausePanel.SetActive(isPaused);
-
-        if (isPaused)
-        {
-            TogglePauseUIContainers(true, false);
-            LoadAudioSettings();
-        }
-        else
-        {
-            SaveAudioSettingsToDisk();
-        }
+        if (isPaused) { TogglePauseUIContainers(true, false); LoadSliders(); }
+        else          { SettingsManager.Instance?.SaveAll(); }
     }
 
-    public void OpenPauseSettings()
-    {
-        PlayClickAudio();
-        TogglePauseUIContainers(false, true);
-    }
+    public void OpenPauseSettings()  { PlayClickAudio(); TogglePauseUIContainers(false, true); }
 
-    public void ClosePauseSettings()
-    {
-        PlayClickAudio();
-        SaveAudioSettingsToDisk(); 
-        TogglePauseUIContainers(true, false);
-    }
+    public void ClosePauseSettings() { PlayClickAudio(); SettingsManager.Instance?.SaveAll(); TogglePauseUIContainers(true, false); }
 
     private void TogglePauseUIContainers(bool menuActive, bool settingsActive)
     {
-        if (pauseMenuContainer) pauseMenuContainer.SetActive(menuActive);
+        if (pauseMenuContainer)     pauseMenuContainer.SetActive(menuActive);
         if (pauseSettingsContainer) pauseSettingsContainer.SetActive(settingsActive);
     }
 
-    private void InitializeResolutionDropdown()
+    // ── Resolution ────────────────────────────────────────────────────────────
+
+    private void InitResDropdown()
     {
-        if (resolutionDropdown == null) return;
-
-        Resolution[] rawResolutions = Screen.resolutions;
-        resolutionDropdown.ClearOptions();
-
-        List<string> options = new List<string>();
-        List<Resolution> uniqueResolutions = new List<Resolution>();
-        int currentResIndex = 0;
-        int savedResIndex = PlayerPrefs.GetInt(ResIndexKey, -1);
-
-        // Filter out redundant entries from different refresh rates to prevent UI layout disruptions
-        for (int i = 0; i < rawResolutions.Length; i++)
-        {
-            string option = $"{rawResolutions[i].width} x {rawResolutions[i].height}";
-            if (!options.Contains(option))
-            {
-                options.Add(option);
-                uniqueResolutions.Add(rawResolutions[i]);
-            }
-        }
-
-        resolutions = uniqueResolutions.ToArray();
-
-        for (int i = 0; i < resolutions.Length; i++)
-        {
-            if (savedResIndex == -1)
-            {
-                if (resolutions[i].width == Screen.currentResolution.width &&
-                    resolutions[i].height == Screen.currentResolution.height)
-                {
-                    currentResIndex = i;
-                }
-            }
-        }
-
-        if (savedResIndex != -1) currentResIndex = savedResIndex;
-
-        resolutionDropdown.AddOptions(options);
-        resolutionDropdown.value = Mathf.Clamp(currentResIndex, 0, resolutions.Length - 1);
-        resolutionDropdown.RefreshShownValue();
-
-        resolutionDropdown.onValueChanged.RemoveAllListeners();
-        resolutionDropdown.onValueChanged.AddListener(SetResolution);
+        if (resolutionDropdown == null || !SettingsManager.Instance) return;
+        SettingsManager.Instance.PopulateDropdown(resolutionDropdown);
+        resolutionDropdown.onValueChanged.AddListener(_ => PlayClickAudio());
     }
 
-    public void SetResolution(int resolutionIndex)
+    public void SetResolution(int index) => SettingsManager.Instance?.ApplyResolution(index);
+
+    // ── Audio & Settings ─────────────────────────────────────────────────────
+
+    private void LoadSliders()
     {
-        if (resolutions == null || resolutionIndex >= resolutions.Length) return;
-        
-        PlayClickAudio();
-        Resolution resolution = resolutions[resolutionIndex];
-        Screen.SetResolution(resolution.width, resolution.height, Screen.fullScreen);
-        
-        // Force instantaneous UI layout boundary updates for clean layout scaling
-        Canvas.ForceUpdateCanvases();
-        
-        PlayerPrefs.SetInt(ResIndexKey, resolutionIndex);
-        PlayerPrefs.Save();
+        if (!SettingsManager.Instance) return;
+        if (musicSlider) musicSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedMusicVol);
+        if (sfxSlider)   sfxSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedSFXVol);
+        if (uiSlider)    uiSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedUIVol);
+        SettingsManager.Instance.ApplySavedAudio();
     }
 
     private void WirePauseMenuAudio()
     {
-        ConfigureSlider(musicSlider, SetMusicVolume);
-        ConfigureSlider(sfxSlider, SetSFXVolume);
-        ConfigureSlider(uiSlider, SetUIVolume);
+        ConfigureSlider(musicSlider, v => SettingsManager.Instance?.SetMusicVolume(v));
+        ConfigureSlider(sfxSlider,   v => SettingsManager.Instance?.SetSFXVolume(v));
+        ConfigureSlider(uiSlider,    v => SettingsManager.Instance?.SetUIVolume(v));
 
-        // auto-wire all buttons under the pause panel so any new button added
-        // in the Inspector is automatically covered — no manual hookup needed
         if (pausePanel != null)
         {
-            Button[] pauseButtons = pausePanel.GetComponentsInChildren<Button>(true);
-            foreach (Button btn in pauseButtons)
-            {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(PlayClickAudio);
-            }
+            foreach (var btn in pausePanel.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+            { btn.onClick.RemoveAllListeners(); btn.onClick.AddListener(PlayClickAudio); }
         }
     }
 
@@ -225,170 +144,77 @@ public class FlappyGameManager : MonoBehaviour
         if (slider == null) return;
         slider.onValueChanged.RemoveAllListeners();
         slider.onValueChanged.AddListener(action);
-        slider.onValueChanged.AddListener((val) => PlaySliderTickAudio());
+        slider.onValueChanged.AddListener(_ => PlaySliderTickAudio());
     }
 
-    private void LoadAudioSettings()
-    {
-        float targetMusic = PlayerPrefs.GetFloat(MusicVolKey, 0.75f);
-        float targetSfx = PlayerPrefs.GetFloat(SfxVolKey, 0.75f);
-        float targetUi = PlayerPrefs.GetFloat(UiVolKey, 0.75f);
+    public void SetMusicVolume(float val) => SettingsManager.Instance?.SetMusicVolume(val);
+    public void SetSFXVolume(float val)   => SettingsManager.Instance?.SetSFXVolume(val);
+    public void SetUIVolume(float val)    => SettingsManager.Instance?.SetUIVolume(val);
 
-        if (musicSlider) musicSlider.value = targetMusic;
-        if (sfxSlider) sfxSlider.value = targetSfx;
-        if (uiSlider) uiSlider.value = targetUi;
-
-        SetMusicVolume(targetMusic);
-        SetSFXVolume(targetSfx);
-        SetUIVolume(targetUi);
-    }
-
-    public void SetMusicVolume(float val) 
-    {
-        ApplyVolumeToMixer("MusicVol", val);
-        PlaySliderTickAudio();
-    }
-    
-    public void SetSFXVolume(float val) 
-    {
-        ApplyVolumeToMixer("SFXVol", val);
-        PlaySliderTickAudio();
-    }
-    
-    public void SetUIVolume(float val) 
-    {
-        ApplyVolumeToMixer("UIVol", val);
-        PlaySliderTickAudio();
-    }
-
-    private void ApplyVolumeToMixer(string parameterName, float sliderValue)
-    {
-        if (audioMixer == null) return;
-        float targetDb = (sliderValue <= 0.0001f) ? -80f : Mathf.Log10(sliderValue) * 20f;
-        audioMixer.SetFloat(parameterName, targetDb);
-    }
-
-    private void SaveAudioSettingsToDisk()
-    {
-        if (musicSlider) PlayerPrefs.SetFloat(MusicVolKey, musicSlider.value);
-        if (sfxSlider) PlayerPrefs.SetFloat(SfxVolKey, sfxSlider.value);
-        if (uiSlider) PlayerPrefs.SetFloat(UiVolKey, uiSlider.value);
-        PlayerPrefs.Save();
-    }
+    // ── Gameplay (unchanged) ──────────────────────────────────────────────────
 
     public void AddScore()
     {
         if (isGameOver) return;
-
         currentScore++;
         UpdateScoreUI();
-
-        if (audioSource != null && scoreSound != null)
-        {
-            audioSource.PlayOneShot(scoreSound);
-        }
+        if (audioSource && scoreSound) audioSource.PlayOneShot(scoreSound);
     }
 
-    private void UpdateScoreUI()
-    {
-        if (scoreText != null) scoreText.text = currentScore.ToString();
-    }
+    private void UpdateScoreUI() { if (scoreText) scoreText.text = currentScore.ToString(); }
 
     public void GameOver()
     {
         if (isGameOver) return;
         isGameOver = true;
+        if (musicSource) musicSource.Stop();
+        if (audioSource && gameOverSound) audioSource.PlayOneShot(gameOverSound);
 
-        if (musicSource != null)
-        {
-            musicSource.Stop();
-        }
+        int earned = currentScore / pipesPerCredit;
+        SaveFlightData(earned);
 
-        if (audioSource != null && gameOverSound != null)
-        {
-            audioSource.PlayOneShot(gameOverSound);
-        }
-
-        int earnedCredits = currentScore / pipesPerCredit;
-        SaveFlightData(earnedCredits); 
-
-        if (gameOverPanel) gameOverPanel.SetActive(true);
-        if (finalScoreText != null) finalScoreText.text = $"FINAL SCORE: {currentScore}";
-        if (creditsEarnedText != null) creditsEarnedText.text = $"EARNED: {earnedCredits} CREDITS";
+        if (gameOverPanel)     gameOverPanel.SetActive(true);
+        if (finalScoreText)    finalScoreText.text    = $"FINAL SCORE: {currentScore}";
+        if (creditsEarnedText) creditsEarnedText.text = $"EARNED: {earned} CREDITS";
     }
 
     private void SaveFlightData(int creditsToAdd)
     {
-        int activeSlot = PlayerPrefs.GetInt(SlotKey, 1);
-        string creditsKey = $"PlayerCredits_Slot{activeSlot}";
-        
-        // Removed default 500 credit automatic allocation fallback injection
-        int currentCredits = PlayerPrefs.GetInt(creditsKey, 0);
-        PlayerPrefs.SetInt(creditsKey, currentCredits + creditsToAdd);
+        int slot = PlayerPrefs.GetInt(SlotKey, 1);
+        string creditsKey = $"PlayerCredits_Slot{slot}";
+        PlayerPrefs.SetInt(creditsKey, PlayerPrefs.GetInt(creditsKey, 0) + creditsToAdd);
 
-        string prefsKey = $"FlappyHistory_Slot{activeSlot}";
+        string prefsKey = $"FlappyHistory_Slot{slot}";
         FlappyLeaderboard board = new FlappyLeaderboard();
         string json = PlayerPrefs.GetString(prefsKey, "");
-        
-        if (!string.IsNullOrEmpty(json))
-        {
-            board = JsonUtility.FromJson<FlappyLeaderboard>(json);
-        }
+        if (!string.IsNullOrEmpty(json)) board = JsonUtility.FromJson<FlappyLeaderboard>(json);
 
-        FlappyScoreEntry newEntry = new FlappyScoreEntry
+        board.entries.Add(new FlappyScoreEntry
         {
             attemptNumber = board.entries.Count + 1,
-            date = System.DateTime.Now.ToString("MM/dd/yy HH:mm"),
-            score = currentScore
-        };
-
-        board.entries.Add(newEntry);
+            date          = System.DateTime.Now.ToString("MM/dd/yy HH:mm"),
+            score         = currentScore
+        });
         PlayerPrefs.SetString(prefsKey, JsonUtility.ToJson(board));
         PlayerPrefs.Save();
     }
 
-    public void ResumeGame()
-    {
-        PlayClickAudio();
-        if (isPaused) TogglePause(); 
-    }
+    public void ResumeGame()   { PlayClickAudio(); if (isPaused) TogglePause(); }
+    public void TryAgain()     { PlayClickAudio(); Time.timeScale = 1f; SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); }
+    public void ReturnToMenu() { PlayClickAudio(); Time.timeScale = 1f; SettingsManager.Instance?.SaveAll(); SceneManager.LoadScene("FlappyMenu"); }
 
-    public void TryAgain()
-    {
-        PlayClickAudio();
-        Time.timeScale = 1f; 
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
-
-    public void ReturnToMenu()
-    {
-        PlayClickAudio();
-        Time.timeScale = 1f; 
-        SaveAudioSettingsToDisk(); 
-        SceneManager.LoadScene("FlappyMenu"); 
-    }
-
-    // helper method for ui audio
-    public void PlayClickAudio()
-    {
-        if (uiSource != null && clickSound != null)
-        {
-            uiSource.PlayOneShot(clickSound);
-        }
-    }
+    public void PlayClickAudio() { if (uiSource && clickSound) uiSource.PlayOneShot(clickSound); }
 
     private void PlaySliderTickAudio()
     {
         if (lastSliderSoundTime < 0f) return;
-
         if (Time.unscaledTime - lastSliderSoundTime >= sliderSoundCooldown)
         {
-            if (uiSource != null && sliderSound != null)
+            if (uiSource && sliderSound)
             {
-                // tiny jiggle makes slider dragging sound more organic
                 uiSource.pitch = Random.Range(0.95f, 1.05f);
                 uiSource.PlayOneShot(sliderSound);
-                uiSource.pitch = 1f; // reset pitch
+                uiSource.pitch = 1f;
                 lastSliderSoundTime = Time.unscaledTime;
             }
         }

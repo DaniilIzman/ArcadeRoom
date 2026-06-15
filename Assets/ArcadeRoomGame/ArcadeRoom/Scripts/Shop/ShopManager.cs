@@ -26,20 +26,17 @@ public class ShopManager : MonoBehaviour
 {
     public static ShopManager Instance { get; private set; }
 
-    [Header("UI Panels")]
+    [Header("ui panels")]
     public GameObject shopContainer;       
     public GameObject npcDialoguePanel;    
-    public GameObject powerupsPanel;       
     public GameObject trophiesPanel;       
 
-    [Header("Navigation Buttons")]
-    public Button navPowerupsButton;
+    [Header("navigation buttons")]
     public Button navTrophiesButton;
     public Button navLeaveButton;
-    public Button backToDialogueButton1;   
-    public Button backToDialogueButton2;   
+    public Button backToDialogueButton;   
 
-    [Header("Shop Inventory")]
+    [Header("shop inventory")]
     public ShopItem[] shopItems;
 
     [HideInInspector] public bool isShopOpen = false;
@@ -57,7 +54,7 @@ public class ShopManager : MonoBehaviour
         if (Instance != null && Instance != this) Destroy(gameObject);
         else Instance = this;
 
-        // fetch the chosen slot and dynamically build the JSON file path
+        // fetch the chosen slot and dynamically build the json file path
         activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
         saveFilePath = Application.persistentDataPath + $"/shopProgress_Slot{activeSlot}.json";
     }
@@ -100,13 +97,11 @@ public class ShopManager : MonoBehaviour
 
     private void WireNavigationButtons()
     {
-        if (navPowerupsButton) navPowerupsButton.onClick.AddListener(() => SwitchTab(powerupsPanel));
         if (navTrophiesButton) navTrophiesButton.onClick.AddListener(() => SwitchTab(trophiesPanel));
         if (navLeaveButton) navLeaveButton.onClick.AddListener(CloseShop);
-        if (backToDialogueButton1) backToDialogueButton1.onClick.AddListener(() => SwitchTab(npcDialoguePanel));
-        if (backToDialogueButton2) backToDialogueButton2.onClick.AddListener(() => SwitchTab(npcDialoguePanel));
+        if (backToDialogueButton) backToDialogueButton.onClick.AddListener(() => SwitchTab(npcDialoguePanel));
 
-        Button[] navButtons = { navPowerupsButton, navTrophiesButton, navLeaveButton, backToDialogueButton1, backToDialogueButton2 };
+        Button[] navButtons = { navTrophiesButton, navLeaveButton, backToDialogueButton };
         foreach (Button btn in navButtons)
         {
             if (btn != null) btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
@@ -187,7 +182,6 @@ public class ShopManager : MonoBehaviour
     private void SwitchTab(GameObject activePanel)
     {
         if (npcDialoguePanel) npcDialoguePanel.SetActive(false);
-        if (powerupsPanel) powerupsPanel.SetActive(false);
         if (trophiesPanel) trophiesPanel.SetActive(false);
         if (activePanel) activePanel.SetActive(true);
     }

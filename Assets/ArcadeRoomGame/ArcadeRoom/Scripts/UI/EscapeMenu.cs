@@ -1,10 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement; 
-using UnityEngine.Audio; 
-using System.Collections.Generic;
-using System.Collections; 
-using TMPro; 
+using UnityEngine.SceneManagement;
+using System.Collections;
+using TMPro;
 
 public class EscapeMenu : MonoBehaviour
 {
@@ -20,26 +18,19 @@ public class EscapeMenu : MonoBehaviour
     public Slider sfxVolumeSlider;
     public Slider uiVolumeSlider;
     public Slider sensitivitySlider;
-    
+
     [Header("Dynamic Button Settings")]
     public TextMeshProUGUI backButtonText;
 
-    [Header("Audio Mixer Routing")]
-    public AudioMixer mainMixer;
-    public string musicParamName = "MusicVol";
-    public string sfxParamName = "SFXVol";
-    public string uiParamName = "UIVol";
-
     [Header("Scene Routing")]
     public string mainMenuSceneName = "MainMenu";
-    public float mainMenuLoadDelay = 1.0f;
+    public float  mainMenuLoadDelay = 1.0f;
 
-    private bool isPaused = false;
-    private bool hasChanges = false; 
-    public bool canPause = true; 
-    private Resolution[] availableResolutions;
-    
-    private PlayerCamera cachedCamera;
+    private bool isPaused   = false;
+    private bool hasChanges = false;
+    public  bool canPause   = true;
+
+    private PlayerCamera   cachedCamera;
     private PlayerMovement cachedMovement;
 
     private void Awake()
@@ -50,22 +41,26 @@ public class EscapeMenu : MonoBehaviour
 
     private void Start()
     {
-        cachedCamera = Object.FindFirstObjectByType<PlayerCamera>();
+        cachedCamera   = Object.FindFirstObjectByType<PlayerCamera>();
         cachedMovement = Object.FindFirstObjectByType<PlayerMovement>();
 
         pausePanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        InitializeResolutionOptions();
-        LoadAndApplySettings();
+        if (resolutionDropdown != null)
+        {
+            SettingsManager.Instance.PopulateDropdown(resolutionDropdown);
+            // ApplyResolution is already wired by PopulateDropdown; just add the dirty flag on top
+            resolutionDropdown.onValueChanged.AddListener(_ => MarkSettingsAsDirty());
+        }
+
+        LoadSlidersFromSettings();
         ResetBackButtonText();
 
-        // automatic slider wiring
         if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener(SetMusicVolume);
-        if (sfxVolumeSlider) sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
-        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener(SetUIVolume); 
+        if (sfxVolumeSlider)   sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
+        if (uiVolumeSlider)    uiVolumeSlider.onValueChanged.AddListener(SetUIVolume);
         if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(SetSensitivity);
-        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(SetResolution);
 
         WireEscapeMenuAudio();
     }
@@ -79,11 +74,12 @@ public class EscapeMenu : MonoBehaviour
         }
     }
 
+    // ── Pause ─────────────────────────────────────────────────────────────────
+
     public void TogglePauseState()
     {
         isPaused = !isPaused;
         Time.timeScale = isPaused ? 0f : 1f;
-
         pausePanel.SetActive(isPaused);
         UpdatePlayerConstraints(isPaused);
         ManageCursorState(isPaused);
@@ -101,6 +97,7 @@ public class EscapeMenu : MonoBehaviour
     {
         hasChanges = false;
         ResetBackButtonText();
+        LoadSlidersFromSettings(); // refresh in case another scene changed saved values
         pausePanel.SetActive(false);
         settingsPanel.SetActive(true);
     }
@@ -109,16 +106,9 @@ public class EscapeMenu : MonoBehaviour
     {
         if (hasChanges)
         {
-            PlayerPrefs.SetFloat("Setting_MusicVol", musicVolumeSlider.value);
-            PlayerPrefs.SetFloat("Setting_SFXVol", sfxVolumeSlider.value);
-            PlayerPrefs.SetFloat("Setting_UIVol", uiVolumeSlider.value); 
-            PlayerPrefs.SetFloat("Setting_MouseSensitivity", sensitivitySlider.value);
-            PlayerPrefs.SetInt("Setting_Resolution", resolutionDropdown.value);
-            
-            PlayerPrefs.Save();
+            SettingsManager.Instance.SaveAll();
             hasChanges = false;
         }
-
         settingsPanel.SetActive(false);
         pausePanel.SetActive(true);
         ResetBackButtonText();
@@ -129,11 +119,11 @@ public class EscapeMenu : MonoBehaviour
     private IEnumerator DelayedMenuLoadRoutine()
     {
         yield return new WaitForSecondsRealtime(mainMenuLoadDelay);
-        Time.timeScale = 1f; 
+        Time.timeScale = 1f;
         if (!string.IsNullOrEmpty(mainMenuSceneName)) SceneManager.LoadScene(mainMenuSceneName);
     }
 
-    #region Settings Logic
+    // ── Settings ──────────────────────────────────────────────────────────────
 
     private void ResetBackButtonText()
     {
@@ -149,151 +139,69 @@ public class EscapeMenu : MonoBehaviour
         }
     }
 
-    private void InitializeResolutionOptions()
+    private void LoadSlidersFromSettings()
     {
-        if (resolutionDropdown == null) return;
-        
-        Resolution[] rawResolutions = Screen.resolutions;
-        resolutionDropdown.ClearOptions();
+        if (!SettingsManager.Instance) return;
+        if (musicVolumeSlider) musicVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedMusicVol);
+        if (sfxVolumeSlider)   sfxVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedSFXVol);
+        if (uiVolumeSlider)    uiVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedUIVol);
 
-        List<string> options = new List<string>();
-        List<Resolution> uniqueResolutions = new List<Resolution>();
-        int currentResolutionIndex = 0;
-
-        // Filter out duplicates caused by varying monitor refresh rates to preserve layout scaling
-        for (int i = 0; i < rawResolutions.Length; i++)
-        {
-            string option = rawResolutions[i].width + " x " + rawResolutions[i].height;
-            if (!options.Contains(option))
-            {
-                options.Add(option);
-                uniqueResolutions.Add(rawResolutions[i]);
-            }
-        }
-        
-        availableResolutions = uniqueResolutions.ToArray();
-
-        for (int i = 0; i < availableResolutions.Length; i++)
-        {
-            if (availableResolutions[i].width == Screen.currentResolution.width &&
-                availableResolutions[i].height == Screen.currentResolution.height)
-            {
-                currentResolutionIndex = i;
-            }
-        }
-
-        resolutionDropdown.AddOptions(options);
-        int savedRes = PlayerPrefs.GetInt("Setting_Resolution", currentResolutionIndex);
-        
-        // Clamp layout index safely inside the unique elements boundaries
-        resolutionDropdown.value = Mathf.Clamp(savedRes, 0, availableResolutions.Length - 1);
-        resolutionDropdown.RefreshShownValue();
+        float savedSensitivity = PlayerPrefs.GetFloat("Setting_MouseSensitivity", 2.0f);
+        if (sensitivitySlider) sensitivitySlider.SetValueWithoutNotify(savedSensitivity);
+        ApplySensitivityToCamera(savedSensitivity);
     }
 
-    public void SetResolution(int resolutionIndex)
-    {
-        if (availableResolutions == null || resolutionIndex >= availableResolutions.Length) return;
-        Resolution res = availableResolutions[resolutionIndex];
-        Screen.SetResolution(res.width, res.height, Screen.fullScreenMode);
-        
-        // Force Canvas UI bounds to snap instantly to the new screen layout ratio
-        Canvas.ForceUpdateCanvases(); 
-        MarkSettingsAsDirty();
-    }
-
-    public void SetMusicVolume(float value)
-    {
-        ApplyVolumeToMixer(musicParamName, value);
-        MarkSettingsAsDirty();
-    }
-
-    public void SetSFXVolume(float value)
-    {
-        ApplyVolumeToMixer(sfxParamName, value);
-        MarkSettingsAsDirty();
-    }
-
-    public void SetUIVolume(float value)
-    {
-        ApplyVolumeToMixer(uiParamName, value);
-        MarkSettingsAsDirty();
-    }
-
-    private void ApplyVolumeToMixer(string parameterName, float sliderValue)
-    {
-        if (mainMixer == null) return;
-        if (sliderValue <= 0.0001f) mainMixer.SetFloat(parameterName, -80f); 
-        else mainMixer.SetFloat(parameterName, Mathf.Log10(sliderValue) * 20f);
-    }
+    public void SetMusicVolume(float value) { SettingsManager.Instance.SetMusicVolume(value); MarkSettingsAsDirty(); }
+    public void SetSFXVolume(float value)   { SettingsManager.Instance.SetSFXVolume(value);   MarkSettingsAsDirty(); }
+    public void SetUIVolume(float value)    { SettingsManager.Instance.SetUIVolume(value);     MarkSettingsAsDirty(); }
 
     public void SetSensitivity(float value)
     {
+        PlayerPrefs.SetFloat("Setting_MouseSensitivity", value);
         ApplySensitivityToCamera(value);
         MarkSettingsAsDirty();
     }
 
-    private void LoadAndApplySettings()
+    // Kept as a public passthrough for any Inspector-wired bindings
+    public void SetResolution(int index)
     {
-        float musicVol = PlayerPrefs.GetFloat("Setting_MusicVol", 0.75f);
-        float sfxVol = PlayerPrefs.GetFloat("Setting_SFXVol", 0.75f);
-        float uiVol = PlayerPrefs.GetFloat("Setting_UIVol", 0.75f); 
-        float sensitivity = PlayerPrefs.GetFloat("Setting_MouseSensitivity", 2.0f);
-
-        if (musicVolumeSlider != null) musicVolumeSlider.value = musicVol;
-        if (sfxVolumeSlider != null) sfxVolumeSlider.value = sfxVol;
-        if (uiVolumeSlider != null) uiVolumeSlider.value = uiVol; 
-        if (sensitivitySlider != null) sensitivitySlider.value = sensitivity;
-
-        ApplyVolumeToMixer(musicParamName, musicVol);
-        ApplyVolumeToMixer(sfxParamName, sfxVol);
-        ApplyVolumeToMixer(uiParamName, uiVol); 
-        ApplySensitivityToCamera(sensitivity);
+        SettingsManager.Instance.ApplyResolution(index);
+        MarkSettingsAsDirty();
     }
 
-    private void ApplySensitivityToCamera(float sensitivityValue)
+    private void ApplySensitivityToCamera(float value)
     {
-        if (cachedCamera != null) cachedCamera.mouseSensitivity = sensitivityValue;
+        if (cachedCamera != null) cachedCamera.mouseSensitivity = value;
     }
 
     private void UpdatePlayerConstraints(bool shouldFreeze)
     {
-        if (cachedCamera != null) cachedCamera.isPausedByMenu = shouldFreeze;
+        if (cachedCamera  != null) cachedCamera.isPausedByMenu  = shouldFreeze;
         if (cachedMovement != null) cachedMovement.isPausedByMenu = shouldFreeze;
     }
 
     private void ManageCursorState(bool visible)
     {
         Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = visible;
+        Cursor.visible   = visible;
     }
 
     private void WireEscapeMenuAudio()
     {
-        // hook up slider movement sounds
-        if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (sfxVolumeSlider) sfxVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (uiVolumeSlider) uiVolumeSlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); }); 
-        
-        // sensitivity slider sound
-        if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        
-        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener((val) => { if(UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+        if (musicVolumeSlider)  musicVolumeSlider.onValueChanged.AddListener(_  => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (sfxVolumeSlider)    sfxVolumeSlider.onValueChanged.AddListener(_    => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (uiVolumeSlider)     uiVolumeSlider.onValueChanged.AddListener(_     => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (sensitivitySlider)  sensitivitySlider.onValueChanged.AddListener(_  => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
+        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(_ => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
 
-        // wire click sounds directly to canvas buttons
-        Button[] menuButtons = settingsPanel.GetComponentsInChildren<Button>(true);
-        foreach (Button btn in menuButtons)
-        {
+        Button[] settingsButtons = settingsPanel.GetComponentsInChildren<Button>(true);
+        foreach (Button btn in settingsButtons)
             btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
-        }
 
         Button[] pauseButtons = pausePanel.GetComponentsInChildren<Button>(true);
         foreach (Button btn in pauseButtons)
-        {
             btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
-        }
     }
-
-    #endregion
 
     private void OnDestroy() => Time.timeScale = 1f;
 }
