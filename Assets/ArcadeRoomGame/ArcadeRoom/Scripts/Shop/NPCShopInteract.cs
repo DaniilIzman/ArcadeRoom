@@ -1,12 +1,15 @@
 using UnityEngine;
 
+// requires a box collider used as the interaction trigger and an audiosource for voice lines
 [RequireComponent(typeof(BoxCollider))]
 [RequireComponent(typeof(AudioSource))]
 public class NPCShopInteract : MonoBehaviour
 {
+    // display name shown in the interaction prompt
     [Header("NPC Settings")]
     public string npcName = "Merchant";
-    
+
+    // voice line arrays played at different points during a shop visit
     [Header("NPC Voice Lines (SFX Arrays)")]
     public AudioClip[] greetingClips;
     public AudioClip[] openShopClips;
@@ -19,32 +22,40 @@ public class NPCShopInteract : MonoBehaviour
     private bool isPlayerInside = false;
     private PlayerMovement playerInZone = null;
 
+    // reset to false each time the shop opens so the correct farewell line is chosen on close
     [HideInInspector] public bool hasBoughtSomethingThisVisit = false;
+
+    // timestamp and duration used to prevent the greeting from spamming on repeated entry
     private float lastGreetTime;
     private float greetCooldown = 3.0f;
 
     private void Start()
     {
+        // route npc voice lines through the sfx mixer group
+        SettingsManager.Instance?.Route(npcAudioSource, SettingsManager.AudioCategory.SFX);
         GetComponent<BoxCollider>().isTrigger = true;
-        
+
         npcAudioSource = GetComponent<AudioSource>();
         npcAudioSource.playOnAwake = false;
-        npcAudioSource.spatialBlend = 1.0f; // makes the audio 3D so it comes from the NPC
+
+        // fully positional 3d audio so voice lines appear to come from the npc's location
+        npcAudioSource.spatialBlend = 1.0f;
     }
 
     private void Update()
     {
         if (isPlayerInside && playerInZone != null && playerInZone.IsGrounded)
         {
+            // only open the shop if the escape menu is in a pauseable state and the shop isn't already open
             if (Input.GetKeyDown(KeyCode.E) && ShopManager.Instance != null && !ShopManager.Instance.isShopOpen)
             {
                 if (EscapeMenu.Instance != null && EscapeMenu.Instance.canPause)
                 {
                     if (UIManager.Instance != null) UIManager.Instance.HidePrompt();
-                    
-                    // reset purchase state for this new visit and open the shop
-                    hasBoughtSomethingThisVisit = false; 
-                    ShopManager.Instance.OpenShop(this); 
+
+                    // clear purchase tracking for the new visit before opening
+                    hasBoughtSomethingThisVisit = false;
+                    ShopManager.Instance.OpenShop(this);
                 }
             }
         }
@@ -52,17 +63,17 @@ public class NPCShopInteract : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // only fire if they are not already inside, preventing double-collider/low-fps physics glitches
+        // guard against duplicate triggers from low framerate or overlapping colliders
         if (other.CompareTag("Player") && !isPlayerInside)
         {
             isPlayerInside = true;
             playerInZone = other.GetComponent<PlayerMovement>();
-            
+
             if (UIManager.Instance != null && (!ShopManager.Instance || !ShopManager.Instance.isShopOpen))
             {
                 UIManager.Instance.ShowPrompt("Press E to talk to " + npcName);
-                
-                // check the cooldown timer before playing the sound
+
+                // only play the greeting if enough time has passed since the last one
                 if (Time.unscaledTime - lastGreetTime > greetCooldown)
                 {
                     PlayRandomVoiceLine(greetingClips);
@@ -82,16 +93,17 @@ public class NPCShopInteract : MonoBehaviour
         }
     }
 
-    // plays a random line and interrupts the previous one so the NPC doesn't talk over themselves
+    // picks a random clip from the given array and plays it, interrupting any currently playing line
     public void PlayRandomVoiceLine(AudioClip[] voiceLines)
     {
         if (voiceLines == null || voiceLines.Length == 0 || npcAudioSource == null) return;
-        
+
         int randomIndex = Random.Range(0, voiceLines.Length);
         npcAudioSource.clip = voiceLines[randomIndex];
         npcAudioSource.Play();
     }
 
+    // plays the appropriate farewell line depending on whether the player bought anything this visit
     public void PlayLeaveShopVoiceLine()
     {
         if (hasBoughtSomethingThisVisit) PlayRandomVoiceLine(leaveBoughtClips);

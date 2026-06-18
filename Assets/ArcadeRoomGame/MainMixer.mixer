@@ -20,7 +20,7 @@ AudioMixerGroupController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: UI
+  m_Name: UIVolume
   m_AudioMixer: {fileID: 24100000}
   m_GroupID: d90028b254e80ea4caddef6afdba21bf
   m_Children: []
@@ -39,7 +39,7 @@ AudioMixerGroupController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Music
+  m_Name: MusicVolume
   m_AudioMixer: {fileID: 24100000}
   m_GroupID: 5e5a55fe6d2442c42a8a82eeb1179cb8
   m_Children: []
@@ -71,11 +71,11 @@ AudioMixerController:
   - guid: ade0b9393f1398547afc17d2ae63fa4f
     name: Master
   - guid: 372ae03178cd3b64ba743617234adc48
-    name: MusicVol
+    name: MusicVolume
   - guid: 300e534c5cb9dfb47b4e71bd60b41665
-    name: SFXVol
+    name: SFXVolume
   - guid: fce524b03bc89604293289c579ffb56e
-    name: UIVol
+    name: UIVolume
   m_AudioMixerGroupViews:
   - guids:
     - 8b9155e1bfd94e14a9d32ee266292bcd
@@ -166,7 +166,7 @@ AudioMixerGroupController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: SFX
+  m_Name: SFXVolume
   m_AudioMixer: {fileID: 24100000}
   m_GroupID: 624bd74313271d741a45121f4091d02a
   m_Children: []

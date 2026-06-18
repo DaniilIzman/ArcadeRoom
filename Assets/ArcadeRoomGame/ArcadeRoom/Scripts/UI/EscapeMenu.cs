@@ -1,207 +1,294 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using System.Collections;
 using TMPro;
 
+// singleton that handles the in-game pause and settings panels
 public class EscapeMenu : MonoBehaviour
 {
     public static EscapeMenu Instance { get; private set; }
 
+    // the two panels toggled depending on whether the player is in the pause or settings view
     [Header("UI Panels")]
     public GameObject pausePanel;
     public GameObject settingsPanel;
 
-    [Header("Settings Controls")]
-    public TMP_Dropdown resolutionDropdown;
-    public Slider musicVolumeSlider;
-    public Slider sfxVolumeSlider;
-    public Slider uiVolumeSlider;
-    public Slider sensitivitySlider;
+    // fullscreen overlay image used to simulate brightness by darkening the screen
+    public Image      brightnessOverlay;
 
-    [Header("Dynamic Button Settings")]
+    // all settings controls wired up in start
+    [Header("Settings Controls")]
+    public TMP_Dropdown    resolutionDropdown;
+    public Slider          brightnessSlider;
+    public Slider          musicSlider;
+    public Slider          sfxSlider;
+    public Slider          uiSlider;
+    public Slider          sensitivitySlider;
+
+    // label on the settings back button; changes to "confirm & save" when there are unsaved changes
+    [Header("Dynamic Button Text")]
     public TextMeshProUGUI backButtonText;
 
+    // scene to load when the player chooses to return to the main menu
     [Header("Scene Routing")]
     public string mainMenuSceneName = "MainMenu";
-    public float  mainMenuLoadDelay = 1.0f;
 
-    private bool isPaused   = false;
-    private bool hasChanges = false;
-    public  bool canPause   = true;
+    // tracks the current state of the menu so applyPanelState can derive what to show
+    private bool _isPaused   = false;
+    private bool _inSettings = false;
+    private bool _hasChanges = false;
 
-    private PlayerCamera   cachedCamera;
-    private PlayerMovement cachedMovement;
+    // set to false by other systems (shop, arcade) to prevent the escape menu from opening
+    public  bool canPause    = true;
+
+    // cached at startup to avoid repeated scene searches
+    private PlayerCamera   _cachedCamera;
+    private PlayerMovement _cachedMovement;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) Destroy(gameObject);
-        else Instance = this;
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
     }
 
     private void Start()
     {
-        cachedCamera   = Object.FindFirstObjectByType<PlayerCamera>();
-        cachedMovement = Object.FindFirstObjectByType<PlayerMovement>();
+        _cachedCamera   = Object.FindFirstObjectByType<PlayerCamera>();
+        _cachedMovement = Object.FindFirstObjectByType<PlayerMovement>();
 
-        pausePanel.SetActive(false);
-        settingsPanel.SetActive(false);
+        _isPaused   = false;
+        _inSettings = false;
+        ApplyPanelState();
 
-        if (resolutionDropdown != null)
+        // populate and wire the resolution dropdown if both references are available
+        if (resolutionDropdown != null && SettingsManager.Instance != null)
         {
             SettingsManager.Instance.PopulateDropdown(resolutionDropdown);
-            // ApplyResolution is already wired by PopulateDropdown; just add the dirty flag on top
+            resolutionDropdown.onValueChanged.AddListener(SetResolution);
             resolutionDropdown.onValueChanged.AddListener(_ => MarkSettingsAsDirty());
         }
 
-        LoadSlidersFromSettings();
+        if (musicSlider)       musicSlider.onValueChanged.AddListener(SetMusicVolume);
+        if (sfxSlider)         sfxSlider.onValueChanged.AddListener(SetSFXVolume);
+        if (uiSlider)          uiSlider.onValueChanged.AddListener(SetUIVolume);
+        if (brightnessSlider)  brightnessSlider.onValueChanged.AddListener(SetBrightness);
+        if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(v =>
+        {
+            SettingsManager.Instance?.SetSensitivity(v);
+            ApplySensitivityToCamera(v);
+            MarkSettingsAsDirty();
+        });
+
+        // subscribe to brightness changes so the overlay stays in sync
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnBrightnessChanged += UpdateBrightnessOverlay;
+
+        WireButtonSounds(pausePanel);
+        WireButtonSounds(settingsPanel);
+        WireSliderSounds();
+
+        LoadSliders();
         ResetBackButtonText();
+    }
 
-        if (musicVolumeSlider) musicVolumeSlider.onValueChanged.AddListener(SetMusicVolume);
-        if (sfxVolumeSlider)   sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
-        if (uiVolumeSlider)    uiVolumeSlider.onValueChanged.AddListener(SetUIVolume);
-        if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(SetSensitivity);
-
-        WireEscapeMenuAudio();
+    private void OnDestroy()
+    {
+        // restore timescale and unsubscribe from the brightness event to avoid stale references
+        Time.timeScale = 1f;
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnBrightnessChanged -= UpdateBrightnessOverlay;
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape) && canPause)
+        if (!canPause) return;
+
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (settingsPanel.activeSelf) CloseSettingsAndSave();
+            // pressing escape while in settings saves and returns to the pause panel
+            if (_isPaused && _inSettings) CloseSettingsAndSave();
             else TogglePauseState();
         }
     }
 
-    // ── Pause ─────────────────────────────────────────────────────────────────
-
-    public void TogglePauseState()
+    // determines which panels should be visible based on the current pause and settings state
+    private void ApplyPanelState()
     {
-        isPaused = !isPaused;
-        Time.timeScale = isPaused ? 0f : 1f;
-        pausePanel.SetActive(isPaused);
-        UpdatePlayerConstraints(isPaused);
-        ManageCursorState(isPaused);
+        if (pausePanel)    pausePanel.SetActive(_isPaused && !_inSettings);
+        if (settingsPanel) settingsPanel.SetActive(_isPaused && _inSettings);
     }
 
+    // toggles between paused and unpaused
+    public void TogglePauseState() => SetPaused(!_isPaused);
+
+    // resumes the game from the pause button
+    public void ResumeGame() => SetPaused(false);
+
+    // applies all side effects of changing the paused state
+    private void SetPaused(bool paused)
+    {
+        _isPaused = paused;
+
+        // always exit the settings sub-panel when unpausing
+        if (!paused) _inSettings = false;
+
+        Time.timeScale = paused ? 0f : 1f;
+        ApplyPanelState();
+        SetPlayerFrozen(paused);
+        ManageCursorState(paused);
+
+        // sync sliders to current saved values each time the pause menu opens
+        if (paused) LoadSliders();
+    }
+
+    // closes the menu and prevents it from being re-opened until unlocked
     public void ForceCloseAndLock()
     {
-        canPause = false;
-        if (isPaused) TogglePauseState();
+        canPause    = false;
+        _isPaused   = false;
+        _inSettings = false;
+        Time.timeScale = 1f;
+        ApplyPanelState();
+        SetPlayerFrozen(false);
     }
 
+    // re-enables opening the escape menu after it was force-closed
     public void UnlockMenu() => canPause = true;
 
+    // opens the settings panel from within the pause menu
     public void OpenSettings()
     {
-        hasChanges = false;
+        if (!_isPaused) return;
+        _hasChanges = false;
         ResetBackButtonText();
-        LoadSlidersFromSettings(); // refresh in case another scene changed saved values
-        pausePanel.SetActive(false);
-        settingsPanel.SetActive(true);
+
+        if (resolutionDropdown != null && SettingsManager.Instance != null)
+            SettingsManager.Instance.SyncDropdown(resolutionDropdown);
+
+        LoadSliders();
+        _inSettings = true;
+        ApplyPanelState();
     }
 
+    // saves any pending changes and returns from settings to the pause panel
     public void CloseSettingsAndSave()
     {
-        if (hasChanges)
+        if (_hasChanges)
         {
-            SettingsManager.Instance.SaveAll();
-            hasChanges = false;
+            if (sensitivitySlider != null)
+            {
+                SettingsManager.Instance?.SetSensitivity(sensitivitySlider.value);
+                ApplySensitivityToCamera(sensitivitySlider.value);
+            }
+            SettingsManager.Instance?.SaveAll();
+            _hasChanges = false;
         }
-        settingsPanel.SetActive(false);
-        pausePanel.SetActive(true);
+        _inSettings = false;
+        ApplyPanelState();
         ResetBackButtonText();
     }
 
-    public void LoadMainMenu() => StartCoroutine(DelayedMenuLoadRoutine());
-
-    private IEnumerator DelayedMenuLoadRoutine()
+    // resets timescale and loads the main menu scene using the scene fader if available
+    public void LoadMainMenu()
     {
-        yield return new WaitForSecondsRealtime(mainMenuLoadDelay);
         Time.timeScale = 1f;
-        if (!string.IsNullOrEmpty(mainMenuSceneName)) SceneManager.LoadScene(mainMenuSceneName);
+        if (SceneFader.Instance != null) SceneFader.Instance.LoadScene(mainMenuSceneName);
+        else if (!string.IsNullOrEmpty(mainMenuSceneName)) SceneManager.LoadScene(mainMenuSceneName);
     }
 
-    // ── Settings ──────────────────────────────────────────────────────────────
-
+    // resets the back button text and the unsaved changes flag
     private void ResetBackButtonText()
     {
-        if (backButtonText != null) backButtonText.text = "Back";
+        if (backButtonText) backButtonText.text = "Back";
     }
 
+    // marks that an unsaved change exists and updates the back button label
     private void MarkSettingsAsDirty()
     {
-        if (!hasChanges)
-        {
-            hasChanges = true;
-            if (backButtonText != null) backButtonText.text = "Confirm & Save";
-        }
+        if (_hasChanges) return;
+        _hasChanges = true;
+        if (backButtonText) backButtonText.text = "Confirm & Save";
     }
 
-    private void LoadSlidersFromSettings()
+    // reads current values from settingsmanager and updates all sliders without triggering their events
+    private void LoadSliders()
     {
         if (!SettingsManager.Instance) return;
-        if (musicVolumeSlider) musicVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedMusicVol);
-        if (sfxVolumeSlider)   sfxVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedSFXVol);
-        if (uiVolumeSlider)    uiVolumeSlider.SetValueWithoutNotify(SettingsManager.Instance.SavedUIVol);
-
-        float savedSensitivity = PlayerPrefs.GetFloat("Setting_MouseSensitivity", 2.0f);
-        if (sensitivitySlider) sensitivitySlider.SetValueWithoutNotify(savedSensitivity);
-        ApplySensitivityToCamera(savedSensitivity);
+        if (musicSlider)      musicSlider.SetValueWithoutNotify(SettingsManager.Instance.MusicVolume);
+        if (sfxSlider)        sfxSlider.SetValueWithoutNotify(SettingsManager.Instance.SFXVolume);
+        if (uiSlider)         uiSlider.SetValueWithoutNotify(SettingsManager.Instance.UIVolume);
+        if (brightnessSlider)
+        {
+            brightnessSlider.SetValueWithoutNotify(SettingsManager.Instance.Brightness);
+            UpdateBrightnessOverlay(SettingsManager.Instance.Brightness);
+        }
+        float sensitivity = SettingsManager.Instance.Sensitivity;
+        if (sensitivitySlider) sensitivitySlider.SetValueWithoutNotify(sensitivity);
+        ApplySensitivityToCamera(sensitivity);
+        SettingsManager.Instance.ApplyAllAudio();
     }
 
-    public void SetMusicVolume(float value) { SettingsManager.Instance.SetMusicVolume(value); MarkSettingsAsDirty(); }
-    public void SetSFXVolume(float value)   { SettingsManager.Instance.SetSFXVolume(value);   MarkSettingsAsDirty(); }
-    public void SetUIVolume(float value)    { SettingsManager.Instance.SetUIVolume(value);     MarkSettingsAsDirty(); }
-
-    public void SetSensitivity(float value)
-    {
-        PlayerPrefs.SetFloat("Setting_MouseSensitivity", value);
-        ApplySensitivityToCamera(value);
-        MarkSettingsAsDirty();
-    }
-
-    // Kept as a public passthrough for any Inspector-wired bindings
+    // each method passes the new value to settingsmanager and flags the change as unsaved
     public void SetResolution(int index)
     {
-        SettingsManager.Instance.ApplyResolution(index);
+        SettingsManager.Instance?.ApplyResolution(index);
         MarkSettingsAsDirty();
     }
 
-    private void ApplySensitivityToCamera(float value)
+    public void SetMusicVolume(float v)  { SettingsManager.Instance?.SetMusicVolume(v); MarkSettingsAsDirty(); }
+    public void SetSFXVolume(float v)    { SettingsManager.Instance?.SetSFXVolume(v);   MarkSettingsAsDirty(); }
+    public void SetUIVolume(float v)     { SettingsManager.Instance?.SetUIVolume(v);    MarkSettingsAsDirty(); }
+
+    public void SetBrightness(float v)
     {
-        if (cachedCamera != null) cachedCamera.mouseSensitivity = value;
+        // setting brightness fires onbrightnesschanged which calls updatebrightnessoverlay
+        SettingsManager.Instance?.SetBrightness(v);
+        MarkSettingsAsDirty();
     }
 
-    private void UpdatePlayerConstraints(bool shouldFreeze)
+    // adjusts the alpha of the black overlay image to simulate a brightness change
+    private void UpdateBrightnessOverlay(float value)
     {
-        if (cachedCamera  != null) cachedCamera.isPausedByMenu  = shouldFreeze;
-        if (cachedMovement != null) cachedMovement.isPausedByMenu = shouldFreeze;
+        if (brightnessOverlay == null) return;
+        float alpha = Mathf.Lerp(0.85f, 0f, Mathf.Clamp01(value));
+        brightnessOverlay.color = new Color(0f, 0f, 0f, alpha);
     }
 
+    // pushes the sensitivity value directly to the cached camera component
+    private void ApplySensitivityToCamera(float v) { if (_cachedCamera) _cachedCamera.mouseSensitivity = v; }
+
+    // sets the pause freeze flag on both the camera and movement controllers
+    private void SetPlayerFrozen(bool freeze)
+    {
+        if (_cachedCamera)   _cachedCamera.isPausedByMenu   = freeze;
+        if (_cachedMovement) _cachedMovement.isPausedByMenu = freeze;
+    }
+
+    // locks or unlocks the cursor depending on whether the menu is visible
     private void ManageCursorState(bool visible)
     {
         Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
         Cursor.visible   = visible;
     }
 
-    private void WireEscapeMenuAudio()
+    // attaches a click sound listener to every button found inside the given panel
+    private void WireButtonSounds(GameObject panel)
     {
-        if (musicVolumeSlider)  musicVolumeSlider.onValueChanged.AddListener(_  => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (sfxVolumeSlider)    sfxVolumeSlider.onValueChanged.AddListener(_    => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (uiVolumeSlider)     uiVolumeSlider.onValueChanged.AddListener(_     => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (sensitivitySlider)  sensitivitySlider.onValueChanged.AddListener(_  => { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); });
-        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(_ => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
-
-        Button[] settingsButtons = settingsPanel.GetComponentsInChildren<Button>(true);
-        foreach (Button btn in settingsButtons)
-            btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
-
-        Button[] pauseButtons = pausePanel.GetComponentsInChildren<Button>(true);
-        foreach (Button btn in pauseButtons)
+        if (panel == null) return;
+        foreach (var btn in panel.GetComponentsInChildren<Button>(true))
             btn.onClick.AddListener(() => { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
     }
 
-    private void OnDestroy() => Time.timeScale = 1f;
+    // attaches slider tick and dropdown click sounds to all settings controls
+    private void WireSliderSounds()
+    {
+        void SliderTick() { if (UIManager.Instance) UIManager.Instance.PlaySliderTick(); }
+        if (musicSlider)       musicSlider.onValueChanged.AddListener(_       => SliderTick());
+        if (sfxSlider)         sfxSlider.onValueChanged.AddListener(_         => SliderTick());
+        if (uiSlider)          uiSlider.onValueChanged.AddListener(_          => SliderTick());
+        if (brightnessSlider)  brightnessSlider.onValueChanged.AddListener(_  => SliderTick());
+        if (sensitivitySlider) sensitivitySlider.onValueChanged.AddListener(_ => SliderTick());
+        if (resolutionDropdown) resolutionDropdown.onValueChanged.AddListener(_ =>
+        { if (UIManager.Instance) UIManager.Instance.PlayClickSound(); });
+    }
 }
