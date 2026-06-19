@@ -5,7 +5,7 @@ using System.Collections;
 using System;
 using TMPro;
 
-// controls all main menu behaviour: panel navigation, save slot management, settings, and ui audio
+// controls all main menu behaviour: panel navigation, save slot management, settings, help, and ui audio
 public class MainMenuController : MonoBehaviour
 {
     // tracks whether the slot panel was opened for a new game or a continue
@@ -16,11 +16,13 @@ public class MainMenuController : MonoBehaviour
     [Header("Scene Routing")]
     public string gameSceneName  = "ArcadeRoom";
 
-    // references to the three top-level ui panels
+    // references to the top-level ui panels
     [Header("UI Panels")]
     public GameObject mainPanel;
     public GameObject settingsPanel;
     public GameObject slotSelectionPanel;
+    // panel that shows the beginner-friendly help / how-to-play guide
+    public GameObject helpPanel;
 
     // fullscreen image overlay used to simulate brightness by darkening the screen
     public Image      brightnessOverlay;
@@ -34,6 +36,8 @@ public class MainMenuController : MonoBehaviour
     [Header("Slot Selection UI")]
     public TextMeshProUGUI[] slotInfoTexts;
     public GameObject[]      slotFolderButtons;
+    // one delete button GameObject per slot, hidden for slots that have no save data
+    public GameObject[]      slotDeleteButtons;
     public TextMeshProUGUI   slotPanelTitle;
 
     // list of all game names whose unlock keys should be wiped when a slot is deleted
@@ -88,6 +92,7 @@ public class MainMenuController : MonoBehaviour
         mainPanel.SetActive(true);
         settingsPanel.SetActive(false);
         slotSelectionPanel.SetActive(false);
+        if (helpPanel) helpPanel.SetActive(false);
 
         UpdateContinueButtonInteractivity();
 
@@ -190,6 +195,10 @@ public class MainMenuController : MonoBehaviour
             if (slotFolderButtons.Length > i && slotFolderButtons[i] != null)
                 slotFolderButtons[i].SetActive(hasData);
 
+            // only show the delete button for slots that have data
+            if (slotDeleteButtons != null && slotDeleteButtons.Length > i && slotDeleteButtons[i] != null)
+                slotDeleteButtons[i].SetActive(hasData);
+
             // show the completion icon if the player finished the game in this slot
             if (slotCompletedIcons != null && slotCompletedIcons.Length > i && slotCompletedIcons[i] != null)
                 slotCompletedIcons[i].SetActive(PlayerPrefs.GetInt($"Slot_{slot}_Completed", 0) == 1);
@@ -254,7 +263,7 @@ public class MainMenuController : MonoBehaviour
         else SceneManager.LoadScene(gameSceneName);
     }
 
-    // ── settings panel ────────────────────────────────────────────────────────
+    // ── settings panel ──
 
     // opens the settings panel and syncs all controls to the currently saved values
     public void OpenSettings()
@@ -282,6 +291,24 @@ public class MainMenuController : MonoBehaviour
         ResetSettingsBackButtonText();
     }
 
+    // ── help panel ──
+
+    // opens the help guide panel from the main menu
+    public void OpenHelp()
+    {
+        mainPanel.SetActive(false);
+        if (settingsPanel)      settingsPanel.SetActive(false);
+        if (slotSelectionPanel) slotSelectionPanel.SetActive(false);
+        if (helpPanel)          helpPanel.SetActive(true);
+    }
+
+    // closes the help panel and returns to the main menu
+    public void CloseHelp()
+    {
+        if (helpPanel) helpPanel.SetActive(false);
+        mainPanel.SetActive(true);
+    }
+
     // marks that an unsaved change exists and updates the back button label to prompt the player to save
     private void NotifySettingChanged()
     {
@@ -297,7 +324,7 @@ public class MainMenuController : MonoBehaviour
         if (settingsBackButtonText != null) settingsBackButtonText.text = "Back";
     }
 
-    // ── settings handlers ─────────────────────────────────────────────────────
+    // ── settings handlers ──
 
     // reads current values from settingsmanager and updates all sliders without triggering their events
     private void LoadSliders()
@@ -342,7 +369,7 @@ public class MainMenuController : MonoBehaviour
         brightnessOverlay.color = new Color(0f, 0f, 0f, alpha);
     }
 
-    // ── audio ─────────────────────────────────────────────────────────────────
+    // ── audio ──
 
     // attaches sound playback callbacks to all sliders, the dropdown, and every button in the menu
     private void WireMenuAudio()
