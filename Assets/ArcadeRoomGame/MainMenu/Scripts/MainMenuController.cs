@@ -215,6 +215,8 @@ public class MainMenuController : MonoBehaviour
             // wipe any existing data, then initialise the slot and launch the game
             WipeSlotData(slot);
             PlayerPrefs.SetInt($"Slot_{slot}_HasData", 1);
+            // mark that the arcade room intro should show the first time this new game is entered
+            PlayerPrefs.SetInt($"Slot_{slot}_ShowArcadeIntro", 1);
             PlayerPrefs.SetString($"Slot_{slot}_Timestamp", DateTime.Now.ToString("g"));
             PlayerPrefs.SetInt("Global_LastPlayedSlot", slot);
             PlayerPrefs.Save();
@@ -240,6 +242,7 @@ public class MainMenuController : MonoBehaviour
         PlayerPrefs.DeleteKey($"Slot_{slot}_HasData");
         PlayerPrefs.DeleteKey($"Slot_{slot}_Timestamp");
         PlayerPrefs.DeleteKey($"Slot_{slot}_Completed");
+        PlayerPrefs.DeleteKey($"Slot_{slot}_ShowArcadeIntro");
         PlayerPrefs.DeleteKey($"PlayerCredits_Slot{slot}");
         PlayerPrefs.DeleteKey($"ArcadeUnlocks_Slot{slot}");
 
