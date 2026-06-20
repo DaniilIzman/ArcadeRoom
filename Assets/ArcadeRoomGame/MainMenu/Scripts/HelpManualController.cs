@@ -5,13 +5,12 @@ using TMPro;
 // drives the paged help manual: shows one section at a time with prev/next navigation
 public class HelpManualController : MonoBehaviour
 {
-    // a single help page: an optional icon, a heading, and the body explanation
+    // a single help page: a heading and the body explanation
     [System.Serializable]
     public class HelpPage
     {
         public string title;
         [TextArea(3, 10)] public string body;
-        public Sprite icon;
     }
 
     // all the pages shown in order, filled in the inspector
@@ -22,7 +21,6 @@ public class HelpManualController : MonoBehaviour
     [Header("UI References")]
     public TextMeshProUGUI titleText;
     public TextMeshProUGUI bodyText;
-    public Image           iconImage;
     public TextMeshProUGUI pageIndicator;
 
     // the left and right navigation buttons
@@ -62,13 +60,6 @@ public class HelpManualController : MonoBehaviour
 
         if (titleText) titleText.text = page.title;
         if (bodyText)  bodyText.text  = page.body;
-
-        // show the icon only if this page has one assigned
-        if (iconImage)
-        {
-            iconImage.sprite  = page.icon;
-            iconImage.enabled = page.icon != null;
-        }
 
         // update the "1 / 5" style page counter
         if (pageIndicator) pageIndicator.text = $"{_current + 1} / {pages.Length}";

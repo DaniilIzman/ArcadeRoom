@@ -22,6 +22,15 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime;
 
+    // how often the credit hud re-checks the saved balance so it stays in sync after a purchase
+    [Header("Credit HUD")]
+    [Tooltip("How often (seconds) the credit display re-reads the saved balance.")]
+    [SerializeField] private float creditRefreshInterval = 0.2f;
+    private float _creditPollTimer;
+
+    // last value actually shown on screen, used to skip redundant text updates
+    private int _lastShownCredits = int.MinValue;
+
     private void Awake()
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
@@ -39,14 +48,36 @@ public class UIManager : MonoBehaviour
         if (SettingsManager.Instance != null)
             SettingsManager.Instance.Route(uiAudioSource, SettingsManager.AudioCategory.UI);
 
-        // read the active slot and initialize the credit display with the stored balance
+        // show the current balance immediately on the first frame
+        RefreshCredits();
+    }
+
+    private void Update()
+    {
+        // periodically re-read the saved balance so the hud reflects spending from any system
+        _creditPollTimer += Time.unscaledDeltaTime;
+        if (_creditPollTimer >= creditRefreshInterval)
+        {
+            _creditPollTimer = 0f;
+            RefreshCredits();
+        }
+    }
+
+    // reads the active slot's saved credit balance and updates the hud if it changed
+    public void RefreshCredits()
+    {
         int activeSlot = PlayerPrefs.GetInt("Global_LastPlayedSlot", 1);
-        int credits = PlayerPrefs.GetInt("PlayerCredits_Slot" + activeSlot, 0);
+        int credits    = PlayerPrefs.GetInt("PlayerCredits_Slot" + activeSlot, 0);
         UpdateCreditText(credits);
     }
 
-    // updates the credit counter text displayed in the hud
-    public void UpdateCreditText(int newAmount) { if (creditText != null) creditText.text = "Credits: " + newAmount; }
+    // updates the credit counter text displayed in the hud, skipping the work if nothing changed
+    public void UpdateCreditText(int newAmount)
+    {
+        if (newAmount == _lastShownCredits) return;
+        _lastShownCredits = newAmount;
+        if (creditText != null) creditText.text = "Credits: " + newAmount;
+    }
 
     // shows the interaction prompt with the given message
     public void ShowPrompt(string message)
