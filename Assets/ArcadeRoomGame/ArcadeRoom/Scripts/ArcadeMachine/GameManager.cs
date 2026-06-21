@@ -106,6 +106,23 @@ public class GameManager : MonoBehaviour
         if (UIManager.Instance != null) UIManager.Instance.UpdateCreditText(currentCredits);
     }
 
+    // amount of credits granted by the debug key
+    [Header("Debug / Testing")]
+    [Tooltip("Press the debug key during play to set credits to this amount.")]
+    public int debugCreditAmount = 999;
+    public KeyCode debugGiveCreditsKey = KeyCode.R;
+
+    private void Update()
+    {
+        // debug shortcut: press the key to top up credits to the debug amount
+        if (Input.GetKeyDown(debugGiveCreditsKey))
+        {
+            currentCredits = debugCreditAmount;
+            SaveCredits();
+            Debug.Log($"DEBUG: credits set to {currentCredits} via debug key.");
+        }
+    }
+
     // editor context menu tool that wipes all save data for the active slot
     [ContextMenu("Wipe Active Slot Save Data")]
     public void EditorWipeSave()
