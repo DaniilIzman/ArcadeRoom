@@ -15,11 +15,6 @@ public class GameManager : MonoBehaviour
     [Header("Debug / Testing")]
     public bool forceStartingCreditsOnLoad = false;
 
-    // text element in the hud that displays the current credit count
-    [Header("UI References")]
-    [Tooltip("Drag your Credits Text UI element here.")]
-    public TextMeshProUGUI creditsText;
-
     // the save slot number currently in use, loaded from playerprefs
     private int activeSlot;
 
@@ -105,11 +100,10 @@ public class GameManager : MonoBehaviour
         UpdateCreditsUI();
     }
 
-    // updates the credits text element to reflect the current balance
+    // tells the shared ui manager to refresh the on-screen credit display
     private void UpdateCreditsUI()
     {
-        if (creditsText != null)
-            creditsText.text = "Credits: " + currentCredits.ToString();
+        if (UIManager.Instance != null) UIManager.Instance.UpdateCreditText(currentCredits);
     }
 
     // editor context menu tool that wipes all save data for the active slot

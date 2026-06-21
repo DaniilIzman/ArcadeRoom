@@ -44,6 +44,7 @@ public class EndlessRunnerManager : MonoBehaviour
     public GameObject pausePanel;
     public GameObject pauseSettingsContainer;  // the settings sub-page within the pause menu
     public GameObject pauseMainContainer;      // the main pause menu page with resume/settings/quit buttons
+    public GameObject pauseHelpContainer;      // the help guide sub-page within the pause menu
 
     [Header("Settings Controls")]
     public Slider musicSlider;
@@ -94,6 +95,7 @@ public class EndlessRunnerManager : MonoBehaviour
         // hide all overlay panels at the start of a run
         if (gameOverPanel) gameOverPanel.SetActive(false);
         if (pausePanel) pausePanel.SetActive(false);
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(false);
         if (speedBoostUIPanel) speedBoostUIPanel.SetActive(false);
         if (jumpBoostUIPanel) jumpBoostUIPanel.SetActive(false);
 
@@ -118,7 +120,11 @@ public class EndlessRunnerManager : MonoBehaviour
         // escape either closes the settings sub-page or toggles the whole pause menu
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
-            if (isPaused && pauseSettingsContainer != null && pauseSettingsContainer.activeSelf)
+            if (isPaused && pauseHelpContainer != null && pauseHelpContainer.activeSelf)
+            {
+                ClosePauseHelp();
+            }
+            else if (isPaused && pauseSettingsContainer != null && pauseSettingsContainer.activeSelf)
             {
                 ClosePauseSettings();
             }
@@ -272,6 +278,7 @@ public class EndlessRunnerManager : MonoBehaviour
             // always open to the main pause page, not the settings sub-page
             if (pauseMainContainer) pauseMainContainer.SetActive(true);
             if (pauseSettingsContainer) pauseSettingsContainer.SetActive(false);
+            if (pauseHelpContainer) pauseHelpContainer.SetActive(false);
 
             // sync sliders to whatever the settings manager currently holds
             RefreshSlidersFromSettings();
@@ -304,6 +311,7 @@ public class EndlessRunnerManager : MonoBehaviour
         RefreshSlidersFromSettings();
         if (pauseMainContainer) pauseMainContainer.SetActive(false);
         if (pauseSettingsContainer) pauseSettingsContainer.SetActive(true);
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(false);
     }
 
     // saves settings and switches back to the main pause page
@@ -312,6 +320,24 @@ public class EndlessRunnerManager : MonoBehaviour
         PlayClickSound();
         SettingsManager.Instance?.SaveAll();
         if (pauseSettingsContainer) pauseSettingsContainer.SetActive(false);
+        if (pauseMainContainer) pauseMainContainer.SetActive(true);
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(false);
+    }
+
+    // switches the pause menu to the help guide sub-page
+    public void OpenPauseHelp()
+    {
+        PlayClickSound();
+        if (pauseMainContainer) pauseMainContainer.SetActive(false);
+        if (pauseSettingsContainer) pauseSettingsContainer.SetActive(false);
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(true);
+    }
+
+    // returns from the help guide to the main pause page
+    public void ClosePauseHelp()
+    {
+        PlayClickSound();
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(false);
         if (pauseMainContainer) pauseMainContainer.SetActive(true);
     }
 

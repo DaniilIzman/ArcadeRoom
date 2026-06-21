@@ -22,12 +22,6 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float sliderSoundCooldown = 0.05f;
     private float lastSliderSoundTime;
 
-    // how often the credit hud re-checks the saved balance so it stays in sync after a purchase
-    [Header("Credit HUD")]
-    [Tooltip("How often (seconds) the credit display re-reads the saved balance.")]
-    [SerializeField] private float creditRefreshInterval = 0.2f;
-    private float _creditPollTimer;
-
     // last value actually shown on screen, used to skip redundant text updates
     private int _lastShownCredits = int.MinValue;
 
@@ -50,17 +44,6 @@ public class UIManager : MonoBehaviour
 
         // show the current balance immediately on the first frame
         RefreshCredits();
-    }
-
-    private void Update()
-    {
-        // periodically re-read the saved balance so the hud reflects spending from any system
-        _creditPollTimer += Time.unscaledDeltaTime;
-        if (_creditPollTimer >= creditRefreshInterval)
-        {
-            _creditPollTimer = 0f;
-            RefreshCredits();
-        }
     }
 
     // reads the active slot's saved credit balance and updates the hud if it changed

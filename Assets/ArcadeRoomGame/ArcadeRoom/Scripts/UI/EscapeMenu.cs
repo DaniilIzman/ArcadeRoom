@@ -8,10 +8,12 @@ public class EscapeMenu : MonoBehaviour
 {
     public static EscapeMenu Instance { get; private set; }
 
-    // the two panels toggled depending on whether the player is in the pause or settings view
+    // the panels toggled depending on whether the player is in the pause, settings, or help view
     [Header("UI Panels")]
     public GameObject pausePanel;
     public GameObject settingsPanel;
+    // help guide panel shown from the pause menu; holds the HelpManualController
+    public GameObject helpPanel;
 
     // fullscreen overlay image used to simulate brightness by darkening the screen
     public Image      brightnessOverlay;
@@ -36,6 +38,7 @@ public class EscapeMenu : MonoBehaviour
     // tracks the current state of the menu so applyPanelState can derive what to show
     private bool _isPaused   = false;
     private bool _inSettings = false;
+    private bool _inHelp     = false;
     private bool _hasChanges = false;
 
     // set to false by other systems (shop, arcade) to prevent the escape menu from opening
@@ -58,6 +61,7 @@ public class EscapeMenu : MonoBehaviour
 
         _isPaused   = false;
         _inSettings = false;
+        _inHelp     = false;
         ApplyPanelState();
 
         // populate and wire the resolution dropdown if both references are available
@@ -85,6 +89,7 @@ public class EscapeMenu : MonoBehaviour
 
         WireButtonSounds(pausePanel);
         WireButtonSounds(settingsPanel);
+        WireButtonSounds(helpPanel);
         WireSliderSounds();
 
         LoadSliders();
@@ -105,17 +110,19 @@ public class EscapeMenu : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            // pressing escape while in settings saves and returns to the pause panel
-            if (_isPaused && _inSettings) CloseSettingsAndSave();
-            else TogglePauseState();
+            // escape backs out of a sub-panel first; only toggles pause from the main pause view
+            if (_isPaused && _inSettings)  CloseSettingsAndSave();
+            else if (_isPaused && _inHelp) CloseHelp();
+            else                           TogglePauseState();
         }
     }
 
-    // determines which panels should be visible based on the current pause and settings state
+    // determines which panels should be visible based on the current pause, settings, and help state
     private void ApplyPanelState()
     {
-        if (pausePanel)    pausePanel.SetActive(_isPaused && !_inSettings);
+        if (pausePanel)    pausePanel.SetActive(_isPaused && !_inSettings && !_inHelp);
         if (settingsPanel) settingsPanel.SetActive(_isPaused && _inSettings);
+        if (helpPanel)     helpPanel.SetActive(_isPaused && _inHelp);
     }
 
     // toggles between paused and unpaused
@@ -129,8 +136,8 @@ public class EscapeMenu : MonoBehaviour
     {
         _isPaused = paused;
 
-        // always exit the settings sub-panel when unpausing
-        if (!paused) _inSettings = false;
+        // always exit the settings and help sub-panels when unpausing
+        if (!paused) { _inSettings = false; _inHelp = false; }
 
         Time.timeScale = paused ? 0f : 1f;
         ApplyPanelState();
@@ -147,6 +154,7 @@ public class EscapeMenu : MonoBehaviour
         canPause    = false;
         _isPaused   = false;
         _inSettings = false;
+        _inHelp     = false;
         Time.timeScale = 1f;
         ApplyPanelState();
         SetPlayerFrozen(false);
@@ -166,6 +174,7 @@ public class EscapeMenu : MonoBehaviour
             SettingsManager.Instance.SyncDropdown(resolutionDropdown);
 
         LoadSliders();
+        _inHelp     = false;
         _inSettings = true;
         ApplyPanelState();
     }
@@ -186,6 +195,22 @@ public class EscapeMenu : MonoBehaviour
         _inSettings = false;
         ApplyPanelState();
         ResetBackButtonText();
+    }
+
+    // opens the help guide panel from within the pause menu
+    public void OpenHelp()
+    {
+        if (!_isPaused) return;
+        _inSettings = false;
+        _inHelp     = true;
+        ApplyPanelState();
+    }
+
+    // returns from the help guide to the pause panel
+    public void CloseHelp()
+    {
+        _inHelp = false;
+        ApplyPanelState();
     }
 
     // resets timescale and loads the main menu scene using the scene fader if available

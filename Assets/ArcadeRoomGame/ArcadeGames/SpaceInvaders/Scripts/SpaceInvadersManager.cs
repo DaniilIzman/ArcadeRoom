@@ -37,6 +37,8 @@ public class SpaceInvadersManager : MonoBehaviour
     public GameObject pausePanel;
     public GameObject pauseMenuContainer;
     public GameObject pauseSettingsContainer;
+    // help guide sub-container shown from the pause menu
+    public GameObject pauseHelpContainer;
     public bool isPaused { get; private set; } = false;
 
     // settings sliders and dropdown inside the pause menu
@@ -117,6 +119,7 @@ public class SpaceInvadersManager : MonoBehaviour
         // show the main pause view and hide the settings sub-panel on start
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
+        if (pauseHelpContainer != null) pauseHelpContainer.SetActive(false);
 
         activeSlot = PlayerPrefs.GetInt(prefSlot, 1);
         updateui();
@@ -147,8 +150,9 @@ public class SpaceInvadersManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
-            // pressing escape while in the settings sub-panel closes settings; otherwise toggles pause
-            if (isPaused && pauseSettingsContainer.activeSelf) ClosePauseSettings();
+            // escape backs out of a sub-panel first; only toggles pause from the main pause view
+            if (isPaused && pauseHelpContainer != null && pauseHelpContainer.activeSelf) ClosePauseHelp();
+            else if (isPaused && pauseSettingsContainer.activeSelf) ClosePauseSettings();
             else TogglePause();
         }
     }
@@ -167,6 +171,7 @@ public class SpaceInvadersManager : MonoBehaviour
             Cursor.lockState = CursorLockMode.None;
             if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
             if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
+            if (pauseHelpContainer != null) pauseHelpContainer.SetActive(false);
             RefreshSlidersFromSettings();
             if (bgmAudioSource != null) bgmAudioSource.Pause();
         }
@@ -187,6 +192,7 @@ public class SpaceInvadersManager : MonoBehaviour
         RefreshSlidersFromSettings();
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(false);
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(true);
+        if (pauseHelpContainer != null) pauseHelpContainer.SetActive(false);
     }
 
     // saves settings and returns from the settings sub-panel to the main pause menu view
@@ -195,6 +201,24 @@ public class SpaceInvadersManager : MonoBehaviour
         PlayButtonClickSound();
         SettingsManager.Instance?.SaveAll();
         if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
+        if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
+        if (pauseHelpContainer != null) pauseHelpContainer.SetActive(false);
+    }
+
+    // switches from the pause menu view to the help guide sub-panel
+    public void OpenPauseHelp()
+    {
+        PlayButtonClickSound();
+        if (pauseMenuContainer != null) pauseMenuContainer.SetActive(false);
+        if (pauseSettingsContainer != null) pauseSettingsContainer.SetActive(false);
+        if (pauseHelpContainer != null) pauseHelpContainer.SetActive(true);
+    }
+
+    // returns from the help guide to the main pause menu view
+    public void ClosePauseHelp()
+    {
+        PlayButtonClickSound();
+        if (pauseHelpContainer != null) pauseHelpContainer.SetActive(false);
         if (pauseMenuContainer != null) pauseMenuContainer.SetActive(true);
     }
 

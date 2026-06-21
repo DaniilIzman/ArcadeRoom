@@ -24,6 +24,8 @@ public class FlappyGameManager : MonoBehaviour
     public GameObject pausePanel;
     public GameObject pauseMenuContainer;
     public GameObject pauseSettingsContainer;
+    // help guide sub-container shown from the pause menu
+    public GameObject pauseHelpContainer;
     public bool isPaused { get; private set; } = false;
 
     // settings controls inside the pause menu
@@ -107,7 +109,12 @@ public class FlappyGameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape) && !isGameOver)
         {
             // pressing escape while in the settings sub-panel closes settings; otherwise toggles pause
-            if (isPaused && pauseSettingsContainer && pauseSettingsContainer.activeSelf)
+            if (isPaused && pauseHelpContainer && pauseHelpContainer.activeSelf)
+            {
+                PlayClickAudio();
+                ClosePauseHelp();
+            }
+            else if (isPaused && pauseSettingsContainer && pauseSettingsContainer.activeSelf)
             {
                 PlayClickAudio();
                 ClosePauseSettings();
@@ -157,10 +164,25 @@ public class FlappyGameManager : MonoBehaviour
     }
 
     // sets the active state of the two pause sub-containers
-    private void TogglePauseUIContainers(bool menuActive, bool settingsActive)
+    private void TogglePauseUIContainers(bool menuActive, bool settingsActive, bool helpActive = false)
     {
         if (pauseMenuContainer) pauseMenuContainer.SetActive(menuActive);
         if (pauseSettingsContainer) pauseSettingsContainer.SetActive(settingsActive);
+        if (pauseHelpContainer) pauseHelpContainer.SetActive(helpActive);
+    }
+
+    // switches to the help guide sub-panel
+    public void OpenPauseHelp()
+    {
+        PlayClickAudio();
+        TogglePauseUIContainers(false, false, true);
+    }
+
+    // returns from the help guide to the main pause menu view
+    public void ClosePauseHelp()
+    {
+        PlayClickAudio();
+        TogglePauseUIContainers(true, false, false);
     }
 
     // wires all settings controls and populates sliders with current saved values
