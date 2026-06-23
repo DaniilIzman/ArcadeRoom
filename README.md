@@ -37,47 +37,49 @@ The player explores a first-person 3D arcade room and interacts with arcade cabi
 
 ## Project Structure
 
+```
 Assets/
-├── ArcadeRoomGame/                    # main project content
-│   ├── 3rdPartyAssets/                # third-party assets (referenced by prefabs)
-│   │   ├── Dark UI/
-│   │   ├── Floreswa/
-│   │   └── SimpleFX/
-│   ├── ArcadeGames/                   # the three arcade mini-games
-│   │   ├── CyberHeist/                # endless runner (3rdParty, Prefabs, Scenes, Scripts, Sounds, Sprites)
-│   │   ├── Flappy/                    # Galaxy Glide (incl. Retro.renderTexture for the CRT effect)
-│   │   └── SpaceInvaders/             # Space Invaders shooter
-│   ├── ArcadeRoom/                    # first-person hub: cabinets, shop, exit door
-│   │   ├── 3rdParty/
-│   │   ├── materials/
-│   │   ├── Prefabs/
-│   │   ├── Scenes/
-│   │   ├── Scripts/
-│   │   ├── Sounds/
-│   │   ├── ArcadeMachine_Icon.png     # progress icon (arcade machines)
-│   │   ├── Trophy_Icon.png            # progress icon (trophies)
-│   │   └── ArcadeRoomInputs.inputactions   # Input System action map
-│   ├── MainMenu/                      # title screen, save slot selection
-│   │   ├── Audio/
-│   │   ├── Materials/
-│   │   ├── Resources/                 # contains SettingsManager prefab
-│   │   ├── Scenes/
-│   │   ├── Scripts/
-│   │   ├── Textures/
-│   │   ├── eas-vhs SDF.asset          # TMP font asset (VHS-style)
-│   │   └── eas-vhs.ttf                # source font
-│   ├── Shared/                        # scripts shared across all scenes
-│   │   ├── SettingsManager.cs         # persistent settings + audio routing (single source of truth)
-│   │   ├── SceneFader.cs              # fade-to-black scene transitions
-│   │   ├── AmbientAudio.cs            # ambient background audio
-│   │   └── SpatialAudioEmitter.cs     # 3D positional audio
-│   └── MainMixer.mixer                # single Unity Audio Mixer (all sound routed here)
-├── Settings/                          # URP render pipeline + post-processing
-│   ├── PC_RPAsset.asset / PC_Renderer.asset
-│   ├── Mobile_RPAsset.asset / Mobile_Renderer.asset
-│   ├── DefaultVolumeProfile.asset / SampleSceneProfile.asset
-│   └── UniversalRenderPipelineGlobalSettings.asset
-└── TextMesh Pro/                      # imported TMP package resources
+    ArcadeRoomGame/                        # main project content
+        3rdPartyAssets/                    # third-party assets (referenced by prefabs)
+            Dark UI/
+            Floreswa/
+            SimpleFX/
+        ArcadeGames/                       # the three arcade mini-games
+            CyberHeist/                    # endless runner
+            Flappy/                        # Galaxy Glide (incl. Retro.renderTexture for CRT effect)
+            SpaceInvaders/                 # Space Invaders shooter
+        ArcadeRoom/                        # first-person hub: cabinets, shop, exit door
+            3rdParty/
+            materials/
+            Prefabs/
+            Scenes/
+            Scripts/
+            Sounds/
+            ArcadeMachine_Icon.png         # progress icon (arcade machines)
+            Trophy_Icon.png                # progress icon (trophies)
+            ArcadeRoomInputs.inputactions  # Input System action map
+        MainMenu/                          # title screen, save slot selection
+            Audio/
+            Materials/
+            Resources/                     # contains SettingsManager prefab
+            Scenes/
+            Scripts/
+            Textures/
+            eas-vhs SDF.asset              # TMP font asset (VHS-style)
+            eas-vhs.ttf                    # source font
+        Shared/                            # scripts shared across all scenes
+            SettingsManager.cs             # persistent settings + audio routing (single source of truth)
+            SceneFader.cs                  # fade-to-black scene transitions
+            AmbientAudio.cs                # ambient background audio
+            SpatialAudioEmitter.cs         # 3D positional audio
+        MainMixer.mixer                    # single Unity Audio Mixer (all sound routed here)
+    Settings/                              # URP render pipeline + post-processing
+        PC_RPAsset.asset / PC_Renderer.asset
+        Mobile_RPAsset.asset / Mobile_Renderer.asset
+        DefaultVolumeProfile.asset / SampleSceneProfile.asset
+        UniversalRenderPipelineGlobalSettings.asset
+    TextMesh Pro/                          # imported TMP package resources
+```
 
 ---
 
